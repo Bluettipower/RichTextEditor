@@ -1,0 +1,53 @@
+{
+  "name": "@bluetti/richtext-editor",
+  "version": "0.0.8",
+  "main": "dist/richtext-editor.umd.js",
+  "module": "dist/richtext-editor.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [],
+  "author": "Lucas",
+  "license": "ISC",
+  "description": "A rich text editor based on lexical modification",
+  "dependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@lexical/code": "^0.20.0",
+    "@lexical/hashtag": "^0.20.0",
+    "@lexical/html": "^0.20.0",
+    "@lexical/link": "^0.20.0",
+    "@lexical/list": "^0.20.0",
+    "@lexical/mark": "^0.20.0",
+    "@lexical/overflow": "^0.20.0",
+    "@lexical/react": "^0.20.0",
+    "@lexical/rich-text": "^0.20.0",
+    "@lexical/selection": "^0.20.0",
+    "@lexical/utils": "^0.20.0",
+    "@lexical/table": "^0.20.0",
+    "@rollup/plugin-typescript": "^12.1.1",
+    "@types/lodash": "^4.17.13",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "ahooks": "^3.8.1",
+    "clsx": "^2.1.1",
+    "lexical": "^0.20.0",
+    "lodash": "^4.17.21",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tslib": "^2.6.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.4.10"
+  }
+}
