@@ -1,0 +1,51 @@
+name: Main
+
+on:
+  push:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Configure NPM Auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> ./.npmrc
+          ls -al
+          cat ./.npmrc
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build package
+        run: npm run build
+
+      - name: Set up GitHub CLI
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Get Tag Name
+        id: get_tag
+        run: echo "tag=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ env.tag }} \
+          --title "Release ${{ env.tag }}" \
+          --notes "This is an automated release for ${{ env.tag }}"
+
+      - name: Publish to npm
+        run: |
+          npm publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
