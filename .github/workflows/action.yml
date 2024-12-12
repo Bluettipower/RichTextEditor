@@ -30,22 +30,13 @@ jobs:
       - name: Set up GitHub CLI
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: "16"
 
-      - name: Get Tag Name
-        id: get_tag
-        run: echo "tag=${GITHUB_REF##*/}" >> $GITHUB_ENV
-
-      - name: Create Release
+      - name: Login to npm
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create ${{ env.tag }} \
-          --title "Release ${{ env.tag }}" \
-          --notes "This is an automated release for ${{ env.tag }}"
+          PSW: ${{ secrets.NPMJS_PSW }}
+        run: npm login --registry https://npmjs.bluettipower.com/ --username bluetti1 --password "${{ env.PSW }}"
 
       - name: Publish to npm
         run: |
           npm publish
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
