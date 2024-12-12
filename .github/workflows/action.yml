@@ -37,7 +37,7 @@ jobs:
       - name: Login to npm
         env:
           PSW: ${{ secrets.NPMJS_PSW }}
-        run: npm login --registry https://npmjs.bluettipower.com/ --username bluetti1 --password "${{ env.PSW }}"
+        run: npm login --registry https://npmjs.bluettipower.com/ --username bluetti1 --password ${{ env.PSW }}
 
       - name: Publish to npm
         run: |
