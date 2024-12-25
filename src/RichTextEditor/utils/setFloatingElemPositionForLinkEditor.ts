@@ -21,23 +21,18 @@ export function setFloatingElemPositionForLinkEditor(
   const editorScrollerRect = scrollerElem.getBoundingClientRect();
 
   let top = targetRect.top - floatingElemRect.height - verticalGap;
-  let left = targetRect.left - horizontalOffset;
+  let left = targetRect.width + horizontalOffset;
 
   if (top < editorScrollerRect.top) {
-    floatingElem.style.borderRadius = "0 0 8px 8px";
-    floatingElem.style.boxShadow = "0px 5px 10px rgba(0, 0, 0, 0.2)";
-    top += floatingElemRect.height + targetRect.height + verticalGap * 2 - 8;
-  } else {
-    floatingElem.style.borderRadius = "8px 8px 0px 0px";
-    floatingElem.style.boxShadow = "0px -5px 10px rgba(0, 0, 0, 0.2)";
+    top += floatingElemRect.height + targetRect.height + verticalGap * 2;
   }
 
   if (left + floatingElemRect.width > editorScrollerRect.right) {
     left = editorScrollerRect.right - floatingElemRect.width - horizontalOffset;
   }
 
-  top -= anchorElementRect.top - 4;
-  left -= anchorElementRect.left;
+  top -= anchorElementRect.top + 12;
+  left += 24;
 
   floatingElem.style.opacity = "1";
   floatingElem.style.transform = `translate(${left}px, ${top}px)`;

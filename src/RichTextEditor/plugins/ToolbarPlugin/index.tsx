@@ -60,6 +60,7 @@ import {
   IconChatSquareQuote,
   IconChecklist,
   IconCloseOutlined,
+  IconCode,
   IconFileImage,
   IconFontColor,
   IconHorizontalRule,
@@ -91,6 +92,7 @@ import DropdownEmoji from "../../components/DropDownEmoji";
 import DropDownLetterSpacing from "../../components/DropDownLetterSpacing";
 import { InsetYouTubeDialog } from "../YouTubePlugin";
 import { InsertTableDialog } from "../TablePlugin";
+import { $createCodeNode } from "@lexical/code";
 
 const blockTypeToBlockName = {
   bullet: "Bulleted List",
@@ -206,7 +208,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
           );
           const type = parentList
             ? parentList.getListType()
-            : element.getListType();
+            : (element as ListNode).getListType();
           setBlockType(type);
         } else {
           const type = $isHeadingNode(element)

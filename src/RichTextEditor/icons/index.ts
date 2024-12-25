@@ -39,3 +39,4 @@ export { default as IconCloseOutlined } from "./CloseOutlined";
 export { default as IconTable } from "./Table";
 export { default as IconSettings } from "./Settings";
 export { default as IconImage } from "./Image";
+export { default as IconEdit } from "./Edit";

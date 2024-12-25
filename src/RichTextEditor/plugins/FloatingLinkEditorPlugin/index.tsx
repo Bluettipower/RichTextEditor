@@ -26,21 +26,132 @@ import { createPortal } from "react-dom";
 import { getSelectedNode } from "../../utils/getSelectedNode";
 import { setFloatingElemPositionForLinkEditor } from "../../utils/setFloatingElemPositionForLinkEditor";
 import { sanitizeUrl } from "../../utils/url";
+import { IconEdit } from "../../icons";
+import { DialogActions } from "../../components/Dialog";
+import TextInput from "../../components/TextInput";
+import Modal from "../../components/Modal";
 
-const FloatingLinkEditor: React.FC<{
+interface FloatingLinkEditorProps {
   editor: LexicalEditor;
   isLink: boolean;
   setIsLink: Dispatch<boolean>;
   anchorElem: HTMLElement;
-}> = ({ editor, isLink, setIsLink, anchorElem }) => {
+  onClose?: () => void;
+}
+
+interface LinkProps {
+  url: string;
+  target: string;
+  type: string;
+}
+
+const FloatingLinkEditorModal: React.FC<{
+  open: boolean;
+  value: LinkProps;
+  onClose: () => void;
+  onSubmit: (linkValue: LinkProps) => void;
+}> = (props) => {
+  const { value, open, onClose, onSubmit } = props;
+  const [linkValues, setLinkValues] = useState<LinkProps>({
+    url: "",
+    target: "",
+    type: "https://",
+  });
+
+  useEffect(() => {
+    if (open) setLinkValues(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <>
+      {open ? (
+        <Modal title="超链接" onClose={() => onClose()} closeOnClickOutside>
+          <div style={{ width: 500 }}>
+            <div className="lexicaltheme__link-editor-box">
+              <TextInput
+                label="链接地址"
+                value={linkValues.url}
+                placeholder="请输入链接地址"
+                onChange={(val) => setLinkValues({ ...linkValues, url: val })}
+                prefix={
+                  <div className="lexicaltheme__link-prefix">
+                    {linkValues.type}
+                  </div>
+                }
+              />
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                {[
+                  { value: "https://", label: "https" },
+                  { value: "http://", label: "http" },
+                  { value: "mailto:", label: "邮件" },
+                  { value: "tel:", label: "电话" },
+                ].map((typeValue) => (
+                  <div key={typeValue.value} className="lexicaltheme__radio">
+                    <input
+                      type="radio"
+                      id={`link-type-${typeValue.value}`}
+                      checked={linkValues.type === typeValue.value}
+                      onChange={() => {
+                        setLinkValues({ ...linkValues, type: typeValue.value });
+                      }}
+                    />
+                    <label
+                      className="checkbox-label"
+                      htmlFor={`link-type-${typeValue.value}`}
+                    >
+                      {typeValue.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="lexicaltheme__checkboxInput">
+                <input
+                  type="checkbox"
+                  id="link-new-window"
+                  checked={linkValues.target === "_blank"}
+                  onChange={(event) => {
+                    setLinkValues({
+                      ...linkValues,
+                      target: event.target.checked ? "_blank" : "",
+                    });
+                  }}
+                />
+                <label className="checkbox-label" htmlFor="link-new-window">
+                  从新窗口打开
+                </label>
+              </div>
+            </div>
+            <DialogActions>
+              <button
+                role="button"
+                className="insertimage-dialog-button"
+                onClick={() => onSubmit(linkValues)}
+              >
+                确定
+              </button>
+            </DialogActions>
+          </div>
+        </Modal>
+      ) : null}
+    </>
+  );
+};
+
+const FloatingLinkEditor: React.FC<FloatingLinkEditorProps> = (props) => {
+  const { editor, isLink, setIsLink, anchorElem } = props;
+
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkType, setLinkType] = useState("https://");
   const [target, setTarget] = useState("");
-  const [editedLinkUrl, setEditedLinkUrl] = useState("https://");
+  const [editedLinkUrl, setEditedLinkUrl] = useState("");
   const [lastSelection, setLastSelection] = useState<BaseSelection | null>(
     null
   );
+  const [openModal, setOpenModal] = useState(false);
 
   const $updateLinkEditor = useCallback(() => {
     const selection = $getSelection();
@@ -58,7 +169,23 @@ const FloatingLinkEditor: React.FC<{
         setLinkUrl("");
         setTarget("");
       }
-      setEditedLinkUrl(linkUrl);
+      let url = linkUrl;
+      let type = "https://";
+      if (linkUrl.startsWith("https://")) {
+        url = linkUrl.replace("https://", "");
+        type = "https://";
+      } else if (linkUrl.startsWith("http://")) {
+        url = linkUrl.replace("http://", "");
+        type = "http://";
+      } else if (linkUrl.startsWith("mailto:")) {
+        url = linkUrl.replace("mailto:", "");
+        type = "mailto:";
+      } else if (linkUrl.startsWith("tel:")) {
+        url = linkUrl.replace("tel:", "");
+        type = "tel:";
+      }
+      setEditedLinkUrl(url);
+      setLinkType(type);
     }
     const editorElem = editorRef.current;
     const nativeSelection = window.getSelection();
@@ -77,8 +204,9 @@ const FloatingLinkEditor: React.FC<{
     ) {
       const domRect: DOMRect | undefined =
         nativeSelection.focusNode?.parentElement?.getBoundingClientRect();
+      console.log(nativeSelection.focusNode?.parentElement);
       if (domRect) {
-        // domRect.y += 40;
+        domRect.y += 40;
         setFloatingElemPositionForLinkEditor(domRect, editorElem, anchorElem);
       }
       setLastSelection(selection);
@@ -104,16 +232,12 @@ const FloatingLinkEditor: React.FC<{
 
     window.addEventListener("resize", update);
 
-    if (scrollerElem) {
-      scrollerElem.addEventListener("scroll", update);
-    }
+    if (scrollerElem) scrollerElem.addEventListener("scroll", update);
 
     return () => {
       window.removeEventListener("resize", update);
 
-      if (scrollerElem) {
-        scrollerElem.removeEventListener("scroll", update);
-      }
+      if (scrollerElem) scrollerElem.removeEventListener("scroll", update);
     };
   }, [anchorElem.parentElement, editor, $updateLinkEditor]);
 
@@ -136,11 +260,10 @@ const FloatingLinkEditor: React.FC<{
       editor.registerCommand(
         KEY_ESCAPE_COMMAND,
         () => {
-          if (isLink) {
-            setIsLink(false);
-            return true;
-          }
-          return false;
+          if (!isLink) return false;
+
+          setIsLink(false);
+          return true;
         },
         COMMAND_PRIORITY_HIGH
       )
@@ -153,23 +276,12 @@ const FloatingLinkEditor: React.FC<{
     });
   }, [editor, $updateLinkEditor]);
 
-  const monitorInputInteraction = (
-    event: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleLinkSubmission();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-    }
-  };
-
-  const handleLinkSubmission = () => {
+  const handleLinkSubmission = (value: LinkProps) => {
     if (lastSelection !== null) {
       if (linkUrl !== "") {
         editor.dispatchCommand(TOGGLE_LINK_COMMAND, {
-          url: sanitizeUrl(editedLinkUrl),
-          target,
+          url: sanitizeUrl(value.type + value.url),
+          target: value.target,
         });
         editor.update(() => {
           const selection = $getSelection();
@@ -185,54 +297,41 @@ const FloatingLinkEditor: React.FC<{
             }
           }
         });
+        setTimeout(() => setOpenModal(false), 200);
       }
     }
   };
 
   return (
-    <div ref={editorRef} className="lexicaltheme__link-editor">
-      {!isLink ? null : (
-        <div className="lexicaltheme__link-editor-box">
-          <div className="link-input-box">
-            <input
-              ref={inputRef}
-              value={editedLinkUrl}
-              className="link-input"
-              onKeyDown={(event) => monitorInputInteraction(event)}
-              onChange={(event) => setEditedLinkUrl(event.target.value)}
-            />
-            <button
-              type="button"
-              className="link-confirm"
-              onClick={handleLinkSubmission}
-              onMouseDown={(event) => event.preventDefault()}
-            >
-              保存
-            </button>
-          </div>
-          <div className="lexicaltheme__checkboxInput">
-            <input
-              type="checkbox"
-              id="link-new-window"
-              checked={target === "_blank"}
-              onChange={(event) => {
-                setTarget(event.target.checked ? "_blank" : "");
-              }}
-            />
-            <label className="checkbox-label" htmlFor="link-new-window">
-              从新窗口打开
-            </label>
-          </div>
-        </div>
-      )}
+    <div
+      ref={editorRef}
+      onClick={() => setOpenModal(true)}
+      className="lexicaltheme__link-editor2"
+      style={{ backgroundColor: isLink ? "white" : "transparent" }}
+    >
+      {openModal ? (
+        <FloatingLinkEditorModal
+          open={openModal}
+          onClose={() => {
+            setTimeout(() => {
+              setOpenModal(false);
+            }, 200);
+          }}
+          onSubmit={handleLinkSubmission}
+          value={{ target, url: editedLinkUrl, type: linkType }}
+        />
+      ) : null}
+      {!isLink ? null : <IconEdit className="edit-icon" />}
     </div>
   );
 };
 
-function useFloatingLinkEditorToolbar(
-  editor: LexicalEditor,
-  anchorElem: HTMLElement
-): JSX.Element | null {
+const FloatingLinkEditorPlugin: React.FC<{ anchorElem?: HTMLElement }> = (
+  props
+) => {
+  const { anchorElem = document.body } = props;
+  const [editor] = useLexicalComposerContext();
+
   const [activeEditor, setActiveEditor] = useState(editor);
   const [isLink, setIsLink] = useState(false);
 
@@ -265,11 +364,8 @@ function useFloatingLinkEditorToolbar(
                   autoLinkNode.getIsUnlinked()))
             );
           });
-        if (!badNode) {
-          setIsLink(true);
-        } else {
-          setIsLink(false);
-        }
+        if (!badNode) setIsLink(true);
+        else setIsLink(false);
       }
     }
     return mergeRegister(
@@ -306,22 +402,19 @@ function useFloatingLinkEditorToolbar(
     );
   }, [editor]);
 
-  return createPortal(
-    <FloatingLinkEditor
-      editor={activeEditor}
-      isLink={isLink}
-      anchorElem={anchorElem}
-      setIsLink={setIsLink}
-    />,
-    anchorElem
+  return (
+    <>
+      {createPortal(
+        <FloatingLinkEditor
+          editor={activeEditor}
+          isLink={isLink}
+          anchorElem={anchorElem}
+          setIsLink={setIsLink}
+        />,
+        anchorElem
+      )}
+    </>
   );
-}
+};
 
-export default function FloatingLinkEditorPlugin({
-  anchorElem = document.body,
-}: {
-  anchorElem?: HTMLElement;
-}): JSX.Element | null {
-  const [editor] = useLexicalComposerContext();
-  return useFloatingLinkEditorToolbar(editor, anchorElem);
-}
+export default FloatingLinkEditorPlugin;
