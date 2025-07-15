@@ -1,6 +1,6 @@
 {
   "name": "@bluetti/richtext-editor",
-  "version": "0.0.14",
+  "version": "0.0.20",
   "main": "dist/richtext-editor.umd.js",
   "module": "dist/richtext-editor.es.js",
   "types": "dist/index.d.ts",
