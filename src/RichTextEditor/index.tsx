@@ -168,13 +168,17 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     };
   }, [isSmallWidthViewport]);
 
-  useDebounceEffect(() => {
-    if (count === 0) {
-      setCount(count + 1);
-      return;
-    }
-    onChange && onChange(richTextValue ?? "");
-  }, [richTextValue]);
+  useDebounceEffect(
+    () => {
+      if (count === 0) {
+        setCount(count + 1);
+        return;
+      }
+      onChange && onChange(richTextValue ?? "");
+    },
+    [richTextValue],
+    { wait: 20 }
+  );
 
   return (
     <SettingsContext>

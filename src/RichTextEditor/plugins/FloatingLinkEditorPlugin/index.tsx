@@ -204,7 +204,7 @@ const FloatingLinkEditor: React.FC<FloatingLinkEditorProps> = (props) => {
     ) {
       const domRect: DOMRect | undefined =
         nativeSelection.focusNode?.parentElement?.getBoundingClientRect();
-      console.log(nativeSelection.focusNode?.parentElement);
+      // console.log(nativeSelection.focusNode?.parentElement);
       if (domRect) {
         domRect.y += 40;
         setFloatingElemPositionForLinkEditor(domRect, editorElem, anchorElem);
