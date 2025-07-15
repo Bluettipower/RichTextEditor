@@ -7,3 +7,5 @@ test/
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
+*storybook.log
+storybook-static
