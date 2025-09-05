@@ -202,8 +202,12 @@ const FloatingLinkEditor: React.FC<FloatingLinkEditorProps> = (props) => {
       rootElement.contains(nativeSelection.anchorNode) &&
       editor.isEditable()
     ) {
-      const domRect: DOMRect | undefined =
-        nativeSelection.focusNode?.parentElement?.getBoundingClientRect();
+      // const domRect: DOMRect | undefined =
+      //   nativeSelection.focusNode?.parentElement?.getBoundingClientRect();
+
+      const range = nativeSelection.getRangeAt(0);
+      const domRect = range.getBoundingClientRect();
+
       // console.log(nativeSelection.focusNode?.parentElement);
       if (domRect) {
         domRect.y += 40;

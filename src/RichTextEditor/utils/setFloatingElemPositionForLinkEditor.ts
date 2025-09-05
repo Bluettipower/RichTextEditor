@@ -1,38 +1,33 @@
-const VERTICAL_GAP = 10;
-const HORIZONTAL_OFFSET = 5;
-
 export function setFloatingElemPositionForLinkEditor(
   targetRect: DOMRect | null,
   floatingElem: HTMLElement,
   anchorElem: HTMLElement,
-  verticalGap: number = VERTICAL_GAP,
-  horizontalOffset: number = HORIZONTAL_OFFSET
+  verticalGap: number = 10,
+  horizontalOffset: number = 5
 ): void {
-  const scrollerElem = anchorElem.parentElement;
-
-  if (targetRect === null || !scrollerElem) {
+  if (targetRect === null) {
     floatingElem.style.opacity = "0";
     floatingElem.style.transform = "translate(-10000px, -10000px)";
     return;
   }
 
   const floatingElemRect = floatingElem.getBoundingClientRect();
-  const anchorElementRect = anchorElem.getBoundingClientRect();
-  const editorScrollerRect = scrollerElem.getBoundingClientRect();
+  const anchorRect = anchorElem.getBoundingClientRect();
 
-  let top = targetRect.top - floatingElemRect.height - verticalGap;
-  let left = targetRect.width + horizontalOffset;
+  // 基于 anchor 相对位置
+  let top =
+    targetRect.top - anchorRect.top - floatingElemRect.height - verticalGap;
+  let left = targetRect.left - anchorRect.left + horizontalOffset;
 
-  if (top < editorScrollerRect.top) {
-    top += floatingElemRect.height + targetRect.height + verticalGap * 2;
+  // 如果浮动框超出上边界 → 放到下方
+  if (top < 0) {
+    top = targetRect.bottom - anchorRect.top + verticalGap;
   }
 
-  if (left + floatingElemRect.width > editorScrollerRect.right) {
-    left = editorScrollerRect.right - floatingElemRect.width - horizontalOffset;
+  // 如果浮动框超出右边界 → 左移
+  if (left + floatingElemRect.width > anchorRect.width) {
+    left = anchorRect.width - floatingElemRect.width - horizontalOffset;
   }
-
-  top -= anchorElementRect.top + 12;
-  left += 24;
 
   floatingElem.style.opacity = "1";
   floatingElem.style.transform = `translate(${left}px, ${top}px)`;
