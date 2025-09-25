@@ -22,6 +22,7 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {
   args: {
     id: "my-editor",
+    defaultValue: "This is some initial content",
     max: { preventInput: true, len: 200 },
     onChange(value) {
       console.log(value);

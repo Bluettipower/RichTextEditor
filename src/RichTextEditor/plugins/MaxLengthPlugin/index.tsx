@@ -25,6 +25,7 @@ const MaxLengthPlugin: React.FC<MaxLengthPluginProps> = ({
     let lastRestoredEditorState: EditorState | null = null;
 
     return editor.registerNodeTransform(RootNode, (rootNode: RootNode) => {
+      setTextContentSize(rootNode.getTextContentSize());
       const selection = $getSelection();
       if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
         return;
