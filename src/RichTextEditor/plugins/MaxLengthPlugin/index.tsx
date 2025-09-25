@@ -40,6 +40,7 @@ const MaxLengthPlugin: React.FC<MaxLengthPluginProps> = ({
         const anchor = selection.anchor;
 
         if (delCount > 0) {
+          setTextContentSize(textContentSize - delCount);
           if (
             prevTextContentSize === max &&
             lastRestoredEditorState !== prevEditorState
