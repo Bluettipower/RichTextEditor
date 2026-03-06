@@ -35,6 +35,8 @@ export { default as IconUndo } from "./Undo";
 export { default as IconYoutube } from "./Youtube";
 export { default as IconTypeClear } from "./TypeClear";
 export { default as IconArrowDropDown } from "./ArrowDropDown";
+export { default as IconChevronDoubleLeft } from "./ChevronDoubleLeft";
+export { default as IconChevronDoubleRight } from "./ChevronDoubleRight";
 export { default as IconCloseOutlined } from "./CloseOutlined";
 export { default as IconTable } from "./Table";
 export { default as IconSettings } from "./Settings";

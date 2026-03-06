@@ -48,6 +48,10 @@ import DraggableBlockPlugin from "./plugins/DraggableBlockPlugin";
 import { ExtendedTextNode } from "./nodes/ExtendedTextNode";
 import { TableContext } from "./plugins/TablePlugin";
 
+import type { ToolbarGroupKey } from "./plugins/ToolbarPlugin";
+
+export type { ToolbarGroupKey };
+
 export interface LnkstoneEditorProps {
   id?: string;
   disabled?: boolean;
@@ -56,6 +60,8 @@ export interface LnkstoneEditorProps {
   onChange?: (value: string) => void;
   max?: { len: number; preventInput?: boolean };
   status?: "error" | "success" | "warning" | "info" | "default";
+  /** 默认收起的分组，为空则不收起 */
+  collapsedGroups?: ToolbarGroupKey[];
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -67,6 +73,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     placeholder,
     defaultValue,
     status = "default",
+    collapsedGroups = [],
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -189,7 +196,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
             className="richtext-editor"
             style={{ borderColor: borderColor.get(status) }}
           >
-            <ToolbarPlugin disabled={disabled} />
+            <ToolbarPlugin disabled={disabled} collapsedGroups={collapsedGroups} />
             {max && (
               <MaxLengthPlugin max={max.len} preventInput={max.preventInput} />
             )}
