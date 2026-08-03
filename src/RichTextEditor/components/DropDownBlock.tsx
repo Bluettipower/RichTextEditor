@@ -3,7 +3,7 @@ import {
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND,
 } from "@lexical/list";
-import { $createQuoteNode } from "@lexical/rich-text";
+import { $createQuoteNode, $createHeadingNode, HeadingTagType } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
 import {
   $createParagraphNode,
@@ -113,6 +113,19 @@ const BlockFormatDropDown: React.FC<BlockFormatDropDownProps> = ({
     }
   };
 
+  const formatHeading = (headingTag: HeadingTagType) => {
+    if (blockType !== headingTag) {
+      editor.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          $setBlocksType(selection, () => $createHeadingNode(headingTag));
+        }
+      });
+    } else {
+      formatParagraph();
+    }
+  };
+
   return (
     <DropDown buttonLabel={blockTypeToBlockName[blockType]}>
       <DropDownItem
@@ -122,6 +135,17 @@ const BlockFormatDropDown: React.FC<BlockFormatDropDownProps> = ({
         <IconTextParagraph />
         <span>Normal</span>
       </DropDownItem>
+      {(["h1", "h2", "h3", "h4", "h5", "h6"] as HeadingTagType[]).map(
+        (tag) => (
+          <DropDownItem
+            key={tag}
+            active={blockType === tag}
+            onClick={() => formatHeading(tag)}
+          >
+            <span>{blockTypeToBlockName[tag]}</span>
+          </DropDownItem>
+        )
+      )}
       <DropDownItem active={blockType === "bullet"} onClick={formatBulletList}>
         <IconListUl />
         <span>Bullet List</span>

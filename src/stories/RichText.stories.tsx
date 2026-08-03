@@ -11,7 +11,7 @@ const meta = {
     collapsedGroups: {
       control: "object",
       description:
-        "需要默认收起的分组：undo|fontSize|format|script|align|list|insert|clear，为空则不收起",
+        "需要默认收起的分组：undo|heading|fontSize|format|script|align|list|insert|clear，为空则不收起",
     },
   },
   args: {

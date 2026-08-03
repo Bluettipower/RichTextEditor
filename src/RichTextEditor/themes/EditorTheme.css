@@ -81,21 +81,66 @@
 .lexicaltheme__h1 {
   font-size: 24px;
   color: rgb(5, 5, 5);
-  font-weight: 400;
+  font-weight: 800;
   margin: 0;
 }
 .lexicaltheme__h2 {
-  font-size: 15px;
-  color: rgb(101, 103, 107);
+  font-size: 20px;
+  color: rgb(5, 5, 5);
   font-weight: 700;
   margin: 0;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
 }
 .lexicaltheme__h3 {
-  font-size: 12px;
+  font-size: 18px;
+  color: rgb(5, 5, 5);
+  font-weight: 600;
   margin: 0;
+}
+.lexicaltheme__h4 {
+  font-size: 16px;
+  color: rgb(5, 5, 5);
+  font-weight: 600;
+  margin: 0;
+}
+.lexicaltheme__h5 {
+  font-size: 14px;
+  color: rgb(5, 5, 5);
+  font-weight: 600;
+  margin: 0;
+}
+.lexicaltheme__h6 {
+  font-size: 12px;
+  color: rgb(5, 5, 5);
+  font-weight: 600;
+  margin: 0;
+  /* text-transform: uppercase; */
+}
+.lexicaltheme__heading-option--h1 {
+  font-size: 24px;
+  font-weight: 400;
+}
+.lexicaltheme__heading-option--h2 {
+  font-size: 20px;
+  font-weight: 700;
   text-transform: uppercase;
 }
+.lexicaltheme__heading-option--h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.lexicaltheme__heading-option--h4 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.lexicaltheme__heading-option--h5 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.lexicaltheme__heading-option--h6 {
+  font-size: 12px;
+  font-weight: 600;
+	}
 .lexicaltheme__indent {
   --lexical-indent-base-value: 40px;
 }

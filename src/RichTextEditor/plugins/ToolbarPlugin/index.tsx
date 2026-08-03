@@ -52,6 +52,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
 
 import DropDownFontSize from "../../components/DropDownFontSize";
+import DropDownHeading from "../../components/DropDownHeading";
 import { getSelectedNode } from "../../utils/getSelectedNode";
 import DropdownColorPicker from "../../components/DropDownColorPicker";
 import DropDownLineHeight from "../../components/DropDownLineHeight";
@@ -148,6 +149,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = (props) => {
 
 export type ToolbarGroupKey =
   | "undo"
+  | "heading"
   | "fontSize"
   | "format"
   | "script"
@@ -476,6 +478,18 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
           >
             <IconRedo />
           </ToolbarButton>
+        </Fragment>
+      );
+    }
+
+    if (isGroupVisible("heading")) {
+      children.push(
+        <Fragment key="heading">
+          <DropDownHeading
+            disabled={disabled}
+            blockType={blockType}
+            editor={activeEditor}
+          />
         </Fragment>
       );
     }
