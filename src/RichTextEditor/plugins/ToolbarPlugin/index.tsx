@@ -63,6 +63,14 @@ import DropDownFontSize from "../../components/DropDownFontSize";
 import DropDownHeading from "../../components/DropDownHeading";
 import HtmlViewDialog from "../../components/HtmlViewDialog";
 import { renderToolbarSlots } from "../../utils/renderToolbarSlots";
+import {
+  hasVisibleToolbarItems,
+  isToolbarItemHidden,
+  type ToolbarGroupKey,
+  type ToolbarHiddenKey,
+  type ToolbarItemKey,
+  TOOLBAR_GROUP_ITEMS,
+} from "../../utils/toolbarItems";
 import { getSelectedNode } from "../../utils/getSelectedNode";
 import DropdownColorPicker from "../../components/DropDownColorPicker";
 import DropDownLineHeight from "../../components/DropDownLineHeight";
@@ -157,17 +165,8 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = (props) => {
   );
 };
 
-export type ToolbarGroupKey =
-  | "undo"
-  | "heading"
-  | "fontSize"
-  | "format"
-  | "script"
-  | "align"
-  | "list"
-  | "insert"
-  | "htmlView"
-  | "clear";
+export type { ToolbarGroupKey, ToolbarHiddenKey, ToolbarItemKey };
+export { TOOLBAR_GROUP_ITEMS } from "../../utils/toolbarItems";
 
 export interface ToolbarSlotContext {
   editor: LexicalEditor;
@@ -189,6 +188,8 @@ interface ToolbarPluginProps {
     | ((context: ToolbarSlotContext) => ReactNode | ReactNode[]);
   /** 插槽位置，默认 start */
   toolbarSlotPosition?: "start" | "end";
+  /** 隐藏的内置工具栏按钮，支持单个按钮 key 或分组 key */
+  hiddenToolbarItems?: ToolbarHiddenKey[];
 }
 
 const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
@@ -199,6 +200,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     htmlViewEditable = true,
     toolbarSlots,
     toolbarSlotPosition = "start",
+    hiddenToolbarItems = [],
   } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasCollapsedGroups = collapsedGroups.length > 0;
@@ -236,6 +238,24 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     (key: ToolbarGroupKey) =>
       !collapsedGroups.length || !collapsedGroups.includes(key) || isExpanded,
     [collapsedGroups, isExpanded]
+  );
+
+  const isItemVisible = useCallback(
+    (item: ToolbarItemKey) => {
+      if (item === "htmlView" && !enableHtmlView) {
+        return false;
+      }
+      return !isToolbarItemHidden(item, hiddenToolbarItems);
+    },
+    [enableHtmlView, hiddenToolbarItems]
+  );
+
+  const isGroupRenderable = useCallback(
+    (group: ToolbarGroupKey) =>
+      isGroupVisible(group) &&
+      hasVisibleToolbarItems(TOOLBAR_GROUP_ITEMS[group], hiddenToolbarItems) &&
+      (group !== "htmlView" || enableHtmlView),
+    [enableHtmlView, hiddenToolbarItems, isGroupVisible]
   );
 
   //- update toolbar state
@@ -497,26 +517,30 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   const _renderToolbarGroup = () => {
     const children: React.ReactNode[] = [];
 
-    if (isGroupVisible("undo")) {
+    if (isGroupRenderable("undo")) {
       children.push(
         <Fragment key="undo">
-          <ToolbarButton
-            disabled={!canUndo || disabled}
-            onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
-          >
-            <IconUndo />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!canRedo || disabled}
-            onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
-          >
-            <IconRedo />
-          </ToolbarButton>
+          {isItemVisible("undo") && (
+            <ToolbarButton
+              disabled={!canUndo || disabled}
+              onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
+            >
+              <IconUndo />
+            </ToolbarButton>
+          )}
+          {isItemVisible("redo") && (
+            <ToolbarButton
+              disabled={!canRedo || disabled}
+              onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
+            >
+              <IconRedo />
+            </ToolbarButton>
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("heading")) {
+    if (isGroupRenderable("heading")) {
       children.push(
         <Fragment key="heading">
           <DropDownHeading
@@ -528,216 +552,274 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
       );
     }
 
-    if (isGroupVisible("fontSize")) {
+    if (isGroupRenderable("fontSize")) {
       children.push(
         <Fragment key="fontSize">
-          <DropDownFontSize
-            disabled={disabled}
-            selectionFontSize={fontSize}
-            editor={activeEditor}
-          />
-          <DropDownLineHeight
-            disabled={disabled}
-            editor={activeEditor}
-            selectionLineHeight={lineHeight}
-          />
-          <DropDownLetterSpacing
-            disabled={disabled}
-            editor={activeEditor}
-            selectionLetterSpacing={letterSpacing}
-          />
+          {isItemVisible("fontSize") && (
+            <DropDownFontSize
+              disabled={disabled}
+              selectionFontSize={fontSize}
+              editor={activeEditor}
+            />
+          )}
+          {isItemVisible("lineHeight") && (
+            <DropDownLineHeight
+              disabled={disabled}
+              editor={activeEditor}
+              selectionLineHeight={lineHeight}
+            />
+          )}
+          {isItemVisible("letterSpacing") && (
+            <DropDownLetterSpacing
+              disabled={disabled}
+              editor={activeEditor}
+              selectionLetterSpacing={letterSpacing}
+            />
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("format")) {
+    if (isGroupRenderable("format")) {
       children.push(
         <Fragment key="format">
-          <DropdownColorPicker
-            color={fontColor}
-            disabled={disabled}
-            icon={<IconFontColor />}
-            onChange={onFontColorSelect}
-          />
-          <DropdownColorPicker
-            color={bgColor}
-            disabled={disabled}
-            icon={<IconBackgound />}
-            onChange={onBgColorSelect}
-          />
-          <ToolbarButton
-            active={isBold}
-            disabled={disabled}
-            onClick={() => formatText("bold")}
-          >
-            <IconTypeBold />
-          </ToolbarButton>
-          <ToolbarButton
-            active={isItalic}
-            disabled={disabled}
-            onClick={() => formatText("italic")}
-          >
-            <IconTypeItalic />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={isUnderline}
-            onClick={() => formatText("underline")}
-          >
-            <IconTypeUnderline />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={isStrikethrough}
-            onClick={() => formatText("strikethrough")}
-          >
-            <IconTypeStrikethrough />
-          </ToolbarButton>
+          {isItemVisible("fontColor") && (
+            <DropdownColorPicker
+              color={fontColor}
+              disabled={disabled}
+              icon={<IconFontColor />}
+              onChange={onFontColorSelect}
+            />
+          )}
+          {isItemVisible("bgColor") && (
+            <DropdownColorPicker
+              color={bgColor}
+              disabled={disabled}
+              icon={<IconBackgound />}
+              onChange={onBgColorSelect}
+            />
+          )}
+          {isItemVisible("bold") && (
+            <ToolbarButton
+              active={isBold}
+              disabled={disabled}
+              onClick={() => formatText("bold")}
+            >
+              <IconTypeBold />
+            </ToolbarButton>
+          )}
+          {isItemVisible("italic") && (
+            <ToolbarButton
+              active={isItalic}
+              disabled={disabled}
+              onClick={() => formatText("italic")}
+            >
+              <IconTypeItalic />
+            </ToolbarButton>
+          )}
+          {isItemVisible("underline") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={isUnderline}
+              onClick={() => formatText("underline")}
+            >
+              <IconTypeUnderline />
+            </ToolbarButton>
+          )}
+          {isItemVisible("strikethrough") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={isStrikethrough}
+              onClick={() => formatText("strikethrough")}
+            >
+              <IconTypeStrikethrough />
+            </ToolbarButton>
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("script")) {
+    if (isGroupRenderable("script")) {
       children.push(
         <Fragment key="script">
-          <ToolbarButton
-            disabled={disabled}
-            active={isSubscript}
-            onClick={() => formatText("subscript")}
-          >
-            <IconTypeSubscript />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={isSuperscript}
-            onClick={() => formatText("superscript")}
-          >
-            <IconTypeSuperscript />
-          </ToolbarButton>
-          <ToolbarButton onClick={clearFormatting} disabled={disabled}>
-            <IconTypeClear />
-          </ToolbarButton>
-          <DropdownEmoji editor={activeEditor} disabled={disabled} />
+          {isItemVisible("subscript") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={isSubscript}
+              onClick={() => formatText("subscript")}
+            >
+              <IconTypeSubscript />
+            </ToolbarButton>
+          )}
+          {isItemVisible("superscript") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={isSuperscript}
+              onClick={() => formatText("superscript")}
+            >
+              <IconTypeSuperscript />
+            </ToolbarButton>
+          )}
+          {isItemVisible("clearFormat") && (
+            <ToolbarButton onClick={clearFormatting} disabled={disabled}>
+              <IconTypeClear />
+            </ToolbarButton>
+          )}
+          {isItemVisible("emoji") && (
+            <DropdownEmoji editor={activeEditor} disabled={disabled} />
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("align")) {
+    if (isGroupRenderable("align")) {
       children.push(
         <Fragment key="align">
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() =>
-              editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
-            }
-          >
-            <IconOutdent />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() =>
-              editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
-            }
-          >
-            <IconIndent />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={elementFormat === "left"}
-            onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left")}
-          >
-            <IconTextLeft />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={elementFormat === "center"}
-            onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center")}
-          >
-            <IconTextCenter />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={elementFormat === "right"}
-            onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right")}
-          >
-            <IconTextRight />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={elementFormat === "justify"}
-            onClick={() =>
-              editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "justify")
-            }
-          >
-            <IconJustify />
-          </ToolbarButton>
+          {isItemVisible("outdent") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() =>
+                editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+              }
+            >
+              <IconOutdent />
+            </ToolbarButton>
+          )}
+          {isItemVisible("indent") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() =>
+                editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
+              }
+            >
+              <IconIndent />
+            </ToolbarButton>
+          )}
+          {isItemVisible("alignLeft") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={elementFormat === "left"}
+              onClick={() =>
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left")
+              }
+            >
+              <IconTextLeft />
+            </ToolbarButton>
+          )}
+          {isItemVisible("alignCenter") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={elementFormat === "center"}
+              onClick={() =>
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center")
+              }
+            >
+              <IconTextCenter />
+            </ToolbarButton>
+          )}
+          {isItemVisible("alignRight") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={elementFormat === "right"}
+              onClick={() =>
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right")
+              }
+            >
+              <IconTextRight />
+            </ToolbarButton>
+          )}
+          {isItemVisible("alignJustify") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={elementFormat === "justify"}
+              onClick={() =>
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "justify")
+              }
+            >
+              <IconJustify />
+            </ToolbarButton>
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("list")) {
+    if (isGroupRenderable("list")) {
       children.push(
         <Fragment key="list">
-          <ToolbarButton
-            disabled={disabled}
-            active={blockType === "bullet"}
-            onClick={() => {
-              if (blockType !== "bullet") {
-                editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
-              } else {
-                formatParagraph();
-              }
-            }}
-          >
-            <IconListUl />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={blockType === "number"}
-            onClick={() => {
-              if (blockType !== "number") {
-                editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
-              } else {
-                formatParagraph();
-              }
-            }}
-          >
-            <IconListOl />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={blockType === "check"}
-            onClick={() => {
-              if (blockType !== "check") {
-                editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
-              } else {
-                formatParagraph();
-              }
-            }}
-          >
-            <IconChecklist />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            active={blockType === "quote"}
-            onClick={() => {
-              if (blockType !== "quote") {
-                editor.update(() => {
-                  const selection = $getSelection();
-                  $setBlocksType(selection, () => $createQuoteNode());
-                });
-              } else {
-                formatParagraph();
-              }
-            }}
-          >
-            <IconChatSquareQuote />
-          </ToolbarButton>
+          {isItemVisible("bulletList") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={blockType === "bullet"}
+              onClick={() => {
+                if (blockType !== "bullet") {
+                  editor.dispatchCommand(
+                    INSERT_UNORDERED_LIST_COMMAND,
+                    undefined
+                  );
+                } else {
+                  formatParagraph();
+                }
+              }}
+            >
+              <IconListUl />
+            </ToolbarButton>
+          )}
+          {isItemVisible("numberList") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={blockType === "number"}
+              onClick={() => {
+                if (blockType !== "number") {
+                  editor.dispatchCommand(
+                    INSERT_ORDERED_LIST_COMMAND,
+                    undefined
+                  );
+                } else {
+                  formatParagraph();
+                }
+              }}
+            >
+              <IconListOl />
+            </ToolbarButton>
+          )}
+          {isItemVisible("checkList") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={blockType === "check"}
+              onClick={() => {
+                if (blockType !== "check") {
+                  editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
+                } else {
+                  formatParagraph();
+                }
+              }}
+            >
+              <IconChecklist />
+            </ToolbarButton>
+          )}
+          {isItemVisible("quote") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={blockType === "quote"}
+              onClick={() => {
+                if (blockType !== "quote") {
+                  editor.update(() => {
+                    const selection = $getSelection();
+                    $setBlocksType(selection, () => $createQuoteNode());
+                  });
+                } else {
+                  formatParagraph();
+                }
+              }}
+            >
+              <IconChatSquareQuote />
+            </ToolbarButton>
+          )}
         </Fragment>
       );
     }
 
-    if (enableHtmlView && isGroupVisible("htmlView")) {
+    if (isGroupRenderable("htmlView")) {
       children.push(
         <Fragment key="htmlView">
           <ToolbarButton
@@ -759,60 +841,88 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
       );
     }
 
-    if (isGroupVisible("insert")) {
+    if (isGroupRenderable("insert")) {
       children.push(
         <Fragment key="insert">
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() => {
-              showModal("插入图片", (onClose) => (
-                <InsertImageDialog activeEditor={activeEditor} onClose={onClose} />
-              ));
-            }}
-          >
-            <IconFileImage />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() => {
-              showModal(`添加 YouTube 视频`, (onClose) => (
-                <InsetYouTubeDialog activeEditor={activeEditor} onClose={onClose} />
-              ));
-            }}
-          >
-            <IconYoutube />
-          </ToolbarButton>
-          <ToolbarButton disabled={disabled} active={isLink} onClick={insertLink}>
-            <IconLink />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() =>
-              editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined)
-            }
-          >
-            <IconHorizontalRule />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={disabled}
-            onClick={() => {
-              showModal("插入表格", (onClose) => (
-                <InsertTableDialog activeEditor={activeEditor} onClose={onClose} />
-              ));
-            }}
-          >
-            <IconTable />
-          </ToolbarButton>
+          {isItemVisible("image") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() => {
+                showModal("插入图片", (onClose) => (
+                  <InsertImageDialog
+                    activeEditor={activeEditor}
+                    onClose={onClose}
+                  />
+                ));
+              }}
+            >
+              <IconFileImage />
+            </ToolbarButton>
+          )}
+          {isItemVisible("youtube") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() => {
+                showModal(`添加 YouTube 视频`, (onClose) => (
+                  <InsetYouTubeDialog
+                    activeEditor={activeEditor}
+                    onClose={onClose}
+                  />
+                ));
+              }}
+            >
+              <IconYoutube />
+            </ToolbarButton>
+          )}
+          {isItemVisible("link") && (
+            <ToolbarButton
+              disabled={disabled}
+              active={isLink}
+              onClick={insertLink}
+            >
+              <IconLink />
+            </ToolbarButton>
+          )}
+          {isItemVisible("horizontalRule") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() =>
+                editor.dispatchCommand(
+                  INSERT_HORIZONTAL_RULE_COMMAND,
+                  undefined
+                )
+              }
+            >
+              <IconHorizontalRule />
+            </ToolbarButton>
+          )}
+          {isItemVisible("table") && (
+            <ToolbarButton
+              disabled={disabled}
+              onClick={() => {
+                showModal("插入表格", (onClose) => (
+                  <InsertTableDialog
+                    activeEditor={activeEditor}
+                    onClose={onClose}
+                  />
+                ));
+              }}
+            >
+              <IconTable />
+            </ToolbarButton>
+          )}
         </Fragment>
       );
     }
 
-    if (isGroupVisible("clear")) {
+    if (isGroupRenderable("clear")) {
       children.push(
         <Fragment key="clear">
           <ToolbarButton
             disabled={isEditorEmpty || disabled}
-            onClick={() => editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined)}
+            onClick={() =>
+              editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined)
+            }
           >
             <IconCloseOutlined />
           </ToolbarButton>

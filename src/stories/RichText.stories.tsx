@@ -97,6 +97,36 @@ export const HtmlViewReadonly: Story = {
   },
 };
 
+/** 隐藏内置图片按钮，改用自定义插槽上传 */
+export const HideBuiltinImage: Story = {
+  args: {
+    id: "my-editor-hide-image",
+    hiddenToolbarItems: ["image"],
+    toolbarSlots: ({ editor, disabled }) => (
+      <ToolbarButton
+        disabled={disabled}
+        title="自定义上传图片"
+        onClick={() => {
+          editor.update(() => {
+            console.log("custom image upload");
+          });
+        }}
+      >
+        <span style={{ fontSize: 12, padding: "0 4px" }}>上传图片</span>
+      </ToolbarButton>
+    ),
+    toolbarSlotPosition: "end",
+  },
+};
+
+/** 隐藏整个 insert 分组 */
+export const HideInsertGroup: Story = {
+  args: {
+    id: "my-editor-hide-insert",
+    hiddenToolbarItems: ["insert"],
+  },
+};
+
 /** 部分分组收起：仅显示撤销/重做、格式、上下标与表情，可点击「更多」展开 */
 export const ToolbarPartiallyCollapsed: Story = {
   args: {

@@ -49,10 +49,21 @@ import { ExtendedTextNode } from "./nodes/ExtendedTextNode";
 import { TableContext } from "./plugins/TablePlugin";
 
 import type { ReactNode } from "react";
-import type { ToolbarGroupKey, ToolbarSlotContext } from "./plugins/ToolbarPlugin";
+import type {
+  ToolbarGroupKey,
+  ToolbarHiddenKey,
+  ToolbarItemKey,
+  ToolbarSlotContext,
+} from "./plugins/ToolbarPlugin";
 import { RichTextEditorContextProvider } from "./context/RichTextEditorContext";
 
-export type { ToolbarGroupKey, ToolbarSlotContext };
+export type {
+  ToolbarGroupKey,
+  ToolbarHiddenKey,
+  ToolbarItemKey,
+  ToolbarSlotContext,
+};
+export { TOOLBAR_GROUP_ITEMS } from "./utils/toolbarItems";
 export { useRichTextEditor } from "./context/RichTextEditorContext";
 export { ToolbarButton } from "./plugins/ToolbarPlugin";
 
@@ -77,6 +88,8 @@ export interface LnkstoneEditorProps {
     | ((context: ToolbarSlotContext) => ReactNode | ReactNode[]);
   /** 插槽位置，默认 start */
   toolbarSlotPosition?: "start" | "end";
+  /** 隐藏的内置工具栏按钮，支持单个按钮 key 或分组 key */
+  hiddenToolbarItems?: ToolbarHiddenKey[];
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -93,6 +106,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     htmlViewEditable = true,
     toolbarSlots,
     toolbarSlotPosition = "start",
+    hiddenToolbarItems,
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -223,6 +237,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               htmlViewEditable={htmlViewEditable}
               toolbarSlots={toolbarSlots}
               toolbarSlotPosition={toolbarSlotPosition}
+              hiddenToolbarItems={hiddenToolbarItems}
             />
             {max && (
               <MaxLengthPlugin max={max.len} preventInput={max.preventInput} />
