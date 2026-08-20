@@ -877,6 +877,37 @@ button.toolbarbutton:disabled:hover {
   box-shadow: inset -1px 0 #0000001a;
 }
 
+.lexicaltheme__htmlview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lexicaltheme__htmlview__textarea {
+  width: 100%;
+  min-height: 320px;
+  max-height: 60vh;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.lexicaltheme__htmlview__textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.lexicaltheme__htmlview__error {
+  margin: 0;
+  color: #ef4444;
+  font-size: 13px;
+}
+
 .lexicaltheme__dialogbody {
   min-width: 500px;
   padding: 20px;

@@ -1,6 +1,43 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import RichTextEditor, { type ToolbarGroupKey } from "../RichTextEditor";
+import RichTextEditor, {
+  ToolbarButton,
+  type ToolbarGroupKey,
+  type ToolbarSlotContext,
+} from "../RichTextEditor";
+
+const InsertProductButton = () => (
+  <ToolbarButton title="插入产品">
+    <span style={{ fontSize: 12, padding: "0 4px" }}>插入产品</span>
+  </ToolbarButton>
+);
+
+const InsertCustomButtons = ({ editor, disabled }: ToolbarSlotContext) => (
+  <>
+    <ToolbarButton
+      disabled={disabled}
+      title="插入产品"
+      onClick={() => {
+        editor.update(() => {
+          console.log("insert product");
+        });
+      }}
+    >
+      <span style={{ fontSize: 12, padding: "0 4px" }}>插入产品</span>
+    </ToolbarButton>
+    <ToolbarButton
+      disabled={disabled}
+      title="插入变量"
+      onClick={() => {
+        editor.update(() => {
+          console.log("insert variable");
+        });
+      }}
+    >
+      <span style={{ fontSize: 12, padding: "0 4px" }}>插入变量</span>
+    </ToolbarButton>
+  </>
+);
 
 const meta = {
   title: "Example/RichTextEditor",
@@ -11,7 +48,7 @@ const meta = {
     collapsedGroups: {
       control: "object",
       description:
-        "需要默认收起的分组：undo|heading|fontSize|format|script|align|list|insert|clear，为空则不收起",
+        "需要默认收起的分组：undo|heading|fontSize|format|script|align|list|insert|htmlView|clear，为空则不收起",
     },
   },
   args: {
@@ -31,6 +68,32 @@ export const Playground: Story = {
     onChange(value) {
       console.log(value);
     },
+  },
+};
+
+/** 工具栏插槽：在 toolbar 区域扩展多个自定义按钮 */
+export const WithToolbarSlots: Story = {
+  args: {
+    id: "my-editor-slots",
+    defaultValue: "<h2>标题示例</h2><p>可通过 toolbarSlots 扩展工具栏</p>",
+    toolbarSlots: InsertCustomButtons,
+  },
+};
+
+/** 工具栏插槽：直接传入多个 ReactNode */
+export const WithToolbarSlotNodes: Story = {
+  args: {
+    id: "my-editor-slot-nodes",
+    toolbarSlots: [<InsertProductButton key="product" />],
+  },
+};
+
+/** HTML 源码只读查看 */
+export const HtmlViewReadonly: Story = {
+  args: {
+    id: "my-editor-html-readonly",
+    defaultValue: "<p><strong>Hello</strong> World</p>",
+    htmlViewEditable: false,
   },
 };
 

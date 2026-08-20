@@ -48,9 +48,13 @@ import DraggableBlockPlugin from "./plugins/DraggableBlockPlugin";
 import { ExtendedTextNode } from "./nodes/ExtendedTextNode";
 import { TableContext } from "./plugins/TablePlugin";
 
-import type { ToolbarGroupKey } from "./plugins/ToolbarPlugin";
+import type { ReactNode } from "react";
+import type { ToolbarGroupKey, ToolbarSlotContext } from "./plugins/ToolbarPlugin";
+import { RichTextEditorContextProvider } from "./context/RichTextEditorContext";
 
-export type { ToolbarGroupKey };
+export type { ToolbarGroupKey, ToolbarSlotContext };
+export { useRichTextEditor } from "./context/RichTextEditorContext";
+export { ToolbarButton } from "./plugins/ToolbarPlugin";
 
 export interface LnkstoneEditorProps {
   id?: string;
@@ -62,6 +66,17 @@ export interface LnkstoneEditorProps {
   status?: "error" | "success" | "warning" | "info" | "default";
   /** 默认收起的分组，为空则不收起 */
   collapsedGroups?: ToolbarGroupKey[];
+  /** 是否显示 HTML 源码查看按钮，默认 true */
+  enableHtmlView?: boolean;
+  /** HTML 源码是否可编辑并应用回编辑器，默认 true */
+  htmlViewEditable?: boolean;
+  /** 工具栏扩展插槽，支持传入多个自定义组件或 render 函数 */
+  toolbarSlots?:
+    | ReactNode
+    | ReactNode[]
+    | ((context: ToolbarSlotContext) => ReactNode | ReactNode[]);
+  /** 插槽位置，默认 start */
+  toolbarSlotPosition?: "start" | "end";
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -74,6 +89,10 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     defaultValue,
     status = "default",
     collapsedGroups = [],
+    enableHtmlView = true,
+    htmlViewEditable = true,
+    toolbarSlots,
+    toolbarSlotPosition = "start",
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -190,13 +209,21 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
   return (
     <SettingsContext>
       <LexicalComposer initialConfig={initialConfig}>
+        <RichTextEditorContextProvider disabled={disabled}>
         <TableContext>
           <div
             id={id}
             className="richtext-editor"
             style={{ borderColor: borderColor.get(status) }}
           >
-            <ToolbarPlugin disabled={disabled} collapsedGroups={collapsedGroups} />
+            <ToolbarPlugin
+              disabled={disabled}
+              collapsedGroups={collapsedGroups}
+              enableHtmlView={enableHtmlView}
+              htmlViewEditable={htmlViewEditable}
+              toolbarSlots={toolbarSlots}
+              toolbarSlotPosition={toolbarSlotPosition}
+            />
             {max && (
               <MaxLengthPlugin max={max.len} preventInput={max.preventInput} />
             )}
@@ -274,6 +301,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
             <div>{showTableOfContents && <TableOfContentsPlugin />}</div>
           </div>
         </TableContext>
+        </RichTextEditorContextProvider>
       </LexicalComposer>
     </SettingsContext>
   );

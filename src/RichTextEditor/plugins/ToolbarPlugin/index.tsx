@@ -48,11 +48,21 @@ import {
   UNDO_COMMAND,
 } from "lexical";
 import clsx from "clsx";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
+import { LexicalEditor } from "lexical";
 
 import DropDownFontSize from "../../components/DropDownFontSize";
 import DropDownHeading from "../../components/DropDownHeading";
+import HtmlViewDialog from "../../components/HtmlViewDialog";
+import { renderToolbarSlots } from "../../utils/renderToolbarSlots";
 import { getSelectedNode } from "../../utils/getSelectedNode";
 import DropdownColorPicker from "../../components/DropDownColorPicker";
 import DropDownLineHeight from "../../components/DropDownLineHeight";
@@ -156,16 +166,40 @@ export type ToolbarGroupKey =
   | "align"
   | "list"
   | "insert"
+  | "htmlView"
   | "clear";
+
+export interface ToolbarSlotContext {
+  editor: LexicalEditor;
+  disabled?: boolean;
+}
 
 interface ToolbarPluginProps {
   disabled?: boolean;
   /** 需要默认收起的分组 key 数组，为空则不收起 */
   collapsedGroups?: ToolbarGroupKey[];
+  /** 是否显示 HTML 源码查看按钮 */
+  enableHtmlView?: boolean;
+  /** HTML 源码是否可编辑并应用回编辑器 */
+  htmlViewEditable?: boolean;
+  /** 工具栏扩展插槽，支持传入多个自定义组件 */
+  toolbarSlots?:
+    | ReactNode
+    | ReactNode[]
+    | ((context: ToolbarSlotContext) => ReactNode | ReactNode[]);
+  /** 插槽位置，默认 start */
+  toolbarSlotPosition?: "start" | "end";
 }
 
 const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
-  const { disabled, collapsedGroups = [] } = props;
+  const {
+    disabled,
+    collapsedGroups = [],
+    enableHtmlView = true,
+    htmlViewEditable = true,
+    toolbarSlots,
+    toolbarSlotPosition = "start",
+  } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasCollapsedGroups = collapsedGroups.length > 0;
   const [editor] = useLexicalComposerContext();
@@ -703,6 +737,28 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
       );
     }
 
+    if (enableHtmlView && isGroupVisible("htmlView")) {
+      children.push(
+        <Fragment key="htmlView">
+          <ToolbarButton
+            disabled={disabled}
+            title="查看 HTML 源码"
+            onClick={() => {
+              showModal("HTML 源码", (onClose) => (
+                <HtmlViewDialog
+                  editor={activeEditor}
+                  onClose={onClose}
+                  editable={htmlViewEditable}
+                />
+              ));
+            }}
+          >
+            <IconCode />
+          </ToolbarButton>
+        </Fragment>
+      );
+    }
+
     if (isGroupVisible("insert")) {
       children.push(
         <Fragment key="insert">
@@ -791,11 +847,39 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     return children;
   };
 
+  const slotContext: ToolbarSlotContext = {
+    editor: activeEditor,
+    disabled,
+  };
+  const startSlots = renderToolbarSlots(
+    toolbarSlotPosition === "start" ? toolbarSlots : undefined,
+    slotContext,
+    "toolbar-slot-start"
+  );
+  const endSlots = renderToolbarSlots(
+    toolbarSlotPosition === "end" ? toolbarSlots : undefined,
+    slotContext,
+    "toolbar-slot-end"
+  );
+  const toolbarGroups = _renderToolbarGroup();
+
   return (
     <div ref={toolbarRef} className="lexicaltheme__toolbar">
+      {startSlots.length > 0 && (
+        <>
+          {startSlots}
+          {toolbarGroups.length > 0 && <Divider key="divider-start-slots" />}
+        </>
+      )}
       {intersperse(
-        _renderToolbarGroup(),
+        toolbarGroups,
         (i) => <Divider key={`divider-${i}`} />
+      )}
+      {endSlots.length > 0 && (
+        <>
+          {toolbarGroups.length > 0 && <Divider key="divider-end-slots" />}
+          {endSlots}
+        </>
       )}
       {modal}
     </div>
