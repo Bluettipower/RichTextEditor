@@ -27,6 +27,7 @@ import { PageBreakNode } from "./PageBreakNode";
 // import {StickyNode} from './StickyNode';
 // import {TweetNode} from './TweetNode';
 import { YouTubeNode } from "./YouTubeNode";
+import { HtmlBlockNode } from "./HtmlBlockNode";
 
 const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   HeadingNode,
@@ -56,6 +57,7 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   // TweetNode,
   YouTubeNode,
   MarkNode,
+  HtmlBlockNode,
   // CollapsibleContainerNode,
   // CollapsibleContentNode,
   // CollapsibleTitleNode,

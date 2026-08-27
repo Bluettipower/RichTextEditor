@@ -908,6 +908,20 @@ button.toolbarbutton:disabled:hover {
   font-size: 13px;
 }
 
+.lexicaltheme__htmlBlock {
+  position: relative;
+  margin: 8px 0;
+}
+
+.lexicaltheme__htmlBlock_selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.lexicaltheme__htmlBlock__content {
+  width: 100%;
+}
+
 .lexicaltheme__dialogbody {
   min-width: 500px;
   padding: 20px;

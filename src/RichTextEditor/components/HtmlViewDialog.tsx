@@ -1,73 +1,34 @@
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
-import {
-  $createParagraphNode,
-  $getRoot,
-  $isDecoratorNode,
-  $isElementNode,
-  LexicalEditor,
-} from "lexical";
 import { useCallback, useState } from "react";
+import type { LexicalEditor } from "lexical";
 
 import { DialogActions } from "./Dialog";
+import {
+  $getEditorHtml,
+  $setEditorHtml,
+  type ImportHtmlOptions,
+} from "../utils/htmlImport";
 
 interface HtmlViewDialogProps {
   editor: LexicalEditor;
   onClose: () => void;
   editable?: boolean;
-}
-
-function getEditorHtml(editor: LexicalEditor): string {
-  let html = "";
-  editor.getEditorState().read(() => {
-    html = $generateHtmlFromNodes(editor);
-  });
-  return html;
-}
-
-function applyHtmlToEditor(editor: LexicalEditor, html: string) {
-  editor.update(() => {
-    const root = $getRoot();
-    root.clear();
-
-    if (!html.trim()) {
-      root.append($createParagraphNode());
-      return;
-    }
-
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const generatedNodes = $generateNodesFromDOM(editor, document);
-    const nodes = generatedNodes.map((node) => {
-      if (!$isElementNode(node) && !$isDecoratorNode(node)) {
-        const paragraph = $createParagraphNode();
-        paragraph.append(node);
-        return paragraph;
-      }
-      return node;
-    });
-
-    if (nodes.length === 0) {
-      root.append($createParagraphNode());
-      return;
-    }
-
-    root.append(...nodes);
-  });
+  importHtmlOptions?: ImportHtmlOptions;
 }
 
 const HtmlViewDialog: React.FC<HtmlViewDialogProps> = (props) => {
-  const { editor, onClose, editable = true } = props;
-  const [html, setHtml] = useState(() => getEditorHtml(editor));
+  const { editor, onClose, editable = true, importHtmlOptions } = props;
+  const [html, setHtml] = useState(() => $getEditorHtml(editor));
   const [error, setError] = useState<string>();
 
   const handleApply = useCallback(() => {
     try {
-      applyHtmlToEditor(editor, html);
+      $setEditorHtml(editor, html, importHtmlOptions);
       setError(undefined);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "HTML 解析失败");
     }
-  }, [editor, html, onClose]);
+  }, [editor, html, importHtmlOptions, onClose]);
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(html);

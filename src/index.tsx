@@ -7,5 +7,15 @@ export type {
   ToolbarItemKey,
   ToolbarSlotContext,
   LnkstoneEditorProps,
+  ImportHtmlOptions,
 } from "./RichTextEditor";
-export { useRichTextEditor, ToolbarButton, TOOLBAR_GROUP_ITEMS } from "./RichTextEditor";
+export {
+  useRichTextEditor,
+  ToolbarButton,
+  TOOLBAR_GROUP_ITEMS,
+  $setEditorHtml,
+  $getEditorHtml,
+  importHtmlToEditor,
+  getEditorHtml,
+  DEFAULT_PRESERVE_TAGS,
+} from "./RichTextEditor";

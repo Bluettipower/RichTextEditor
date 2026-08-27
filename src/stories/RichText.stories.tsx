@@ -97,6 +97,21 @@ export const HtmlViewReadonly: Story = {
   },
 };
 
+/** 保留 HTML 结构：div 等容器不会被 Lexical 扁平化 */
+export const PreserveHtmlStructure: Story = {
+  args: {
+    id: "my-editor-preserve-html",
+    preserveHtmlStructure: true,
+    defaultValue: `
+      <div class="banner" style="background:#f5f5f5;padding:16px;">
+        <div class="title"><h2>标题区域</h2></div>
+        <div class="content"><p>嵌套 div 结构会被完整保留</p></div>
+      </div>
+      <p>普通段落仍按 Lexical 节点解析</p>
+    `,
+  },
+};
+
 /** 隐藏内置图片按钮，改用自定义插槽上传 */
 export const HideBuiltinImage: Story = {
   args: {

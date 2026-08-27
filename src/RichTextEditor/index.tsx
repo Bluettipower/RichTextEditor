@@ -32,15 +32,11 @@ import FloatingTextFormatToolbarPlugin from "./plugins/FloatingTextFormatToolbar
 import YouTubePlugin from "./plugins/YouTubePlugin";
 import SerializationPlugin from "./plugins/SerializationPlugin";
 import {
-  $createParagraphNode,
-  $getRoot,
-  $isDecoratorNode,
-  $isElementNode,
   LexicalEditor,
   TextNode,
 } from "lexical";
-import { $generateNodesFromDOM } from "@lexical/html";
 import MaxLengthPlugin from "./plugins/MaxLengthPlugin";
+import { $setEditorHtml } from "./utils/htmlImport";
 import { useDebounceEffect } from "ahooks";
 import TableHoverActionsPlugin from "./plugins/TableHoverActionsPlugin";
 import TableOfContentsPlugin from "./plugins/TableOfContentsPlugin";
@@ -64,6 +60,14 @@ export type {
   ToolbarSlotContext,
 };
 export { TOOLBAR_GROUP_ITEMS } from "./utils/toolbarItems";
+export {
+  $getEditorHtml,
+  $setEditorHtml,
+  getEditorHtml,
+  importHtmlToEditor,
+} from "./utils/htmlImport";
+export type { ImportHtmlOptions } from "./utils/htmlImport";
+export { DEFAULT_PRESERVE_TAGS } from "./nodes/HtmlBlockNode";
 export { useRichTextEditor } from "./context/RichTextEditorContext";
 export { ToolbarButton } from "./plugins/ToolbarPlugin";
 
@@ -90,6 +94,10 @@ export interface LnkstoneEditorProps {
   toolbarSlotPosition?: "start" | "end";
   /** 隐藏的内置工具栏按钮，支持单个按钮 key 或分组 key */
   hiddenToolbarItems?: ToolbarHiddenKey[];
+  /** 导入 HTML 时保留 div 等容器结构，避免 Lexical 扁平化 */
+  preserveHtmlStructure?: boolean;
+  /** 需要保留结构的 HTML 标签 */
+  preserveHtmlTags?: string[];
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -107,6 +115,8 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     toolbarSlots,
     toolbarSlotPosition = "start",
     hiddenToolbarItems,
+    preserveHtmlStructure = false,
+    preserveHtmlTags,
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -135,24 +145,9 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     value: string;
     editor: LexicalEditor;
   }) {
-    return params.editor.update(() => {
-      const root = $getRoot();
-
-      const document = new DOMParser().parseFromString(
-        params.value,
-        "text/html"
-      );
-      const generatedNodes = $generateNodesFromDOM(params.editor, document);
-      const nodes = generatedNodes.map((node) => {
-        if (!$isElementNode(node) && !$isDecoratorNode(node)) {
-          const p = $createParagraphNode();
-          p.append(node);
-          return p;
-        }
-
-        return node;
-      });
-      root.append(...nodes);
+    $setEditorHtml(params.editor, params.value, {
+      preserveStructure: preserveHtmlStructure,
+      preserveTags: preserveHtmlTags,
     });
   }
 
@@ -238,6 +233,10 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               toolbarSlots={toolbarSlots}
               toolbarSlotPosition={toolbarSlotPosition}
               hiddenToolbarItems={hiddenToolbarItems}
+              importHtmlOptions={{
+                preserveStructure: preserveHtmlStructure,
+                preserveTags: preserveHtmlTags,
+              }}
             />
             {max && (
               <MaxLengthPlugin max={max.len} preventInput={max.preventInput} />

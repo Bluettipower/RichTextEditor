@@ -63,6 +63,7 @@ import DropDownFontSize from "../../components/DropDownFontSize";
 import DropDownHeading from "../../components/DropDownHeading";
 import HtmlViewDialog from "../../components/HtmlViewDialog";
 import { renderToolbarSlots } from "../../utils/renderToolbarSlots";
+import type { ImportHtmlOptions } from "../../utils/htmlImport";
 import {
   hasVisibleToolbarItems,
   isToolbarItemHidden,
@@ -190,6 +191,8 @@ interface ToolbarPluginProps {
   toolbarSlotPosition?: "start" | "end";
   /** 隐藏的内置工具栏按钮，支持单个按钮 key 或分组 key */
   hiddenToolbarItems?: ToolbarHiddenKey[];
+  /** HTML 导入选项（HTML 源码弹窗应用时使用） */
+  importHtmlOptions?: ImportHtmlOptions;
 }
 
 const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
@@ -201,6 +204,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     toolbarSlots,
     toolbarSlotPosition = "start",
     hiddenToolbarItems = [],
+    importHtmlOptions,
   } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasCollapsedGroups = collapsedGroups.length > 0;
@@ -831,6 +835,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
                   editor={activeEditor}
                   onClose={onClose}
                   editable={htmlViewEditable}
+                  importHtmlOptions={importHtmlOptions}
                 />
               ));
             }}
