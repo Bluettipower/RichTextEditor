@@ -956,10 +956,129 @@ button.toolbarbutton:disabled:hover {
   cursor: text;
   user-select: text;
   -webkit-user-select: text;
+  caret-color: #000;
 }
 
 .lexicaltheme__htmlBlock__content:focus {
   outline: none;
+  caret-color: #000;
+}
+
+/* HTML 块内恢复原生 HTML 元素的默认样式 */
+.lexicaltheme__htmlBlock__content ul,
+.lexicaltheme__htmlBlock__content ol {
+  display: block;
+  padding-left: 40px;
+  margin: 0.5em 0;
+}
+
+.lexicaltheme__htmlBlock__content ul {
+  list-style-type: disc;
+}
+
+.lexicaltheme__htmlBlock__content ul ul {
+  list-style-type: circle;
+}
+
+.lexicaltheme__htmlBlock__content ul ul ul {
+  list-style-type: square;
+}
+
+.lexicaltheme__htmlBlock__content ol {
+  list-style-type: decimal;
+}
+
+.lexicaltheme__htmlBlock__content li {
+  display: list-item;
+  margin: 0;
+}
+
+.lexicaltheme__htmlBlock__content table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.lexicaltheme__htmlBlock__content th,
+.lexicaltheme__htmlBlock__content td {
+  border: 1px solid #d1d5db;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.lexicaltheme__htmlBlock__content th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.lexicaltheme__htmlBlock__content blockquote {
+  margin: 0.5em 0;
+  margin-left: 20px;
+  padding-left: 16px;
+  border-left: 4px solid #ced0d4;
+  color: #656769;
+}
+
+.lexicaltheme__htmlBlock__content h1,
+.lexicaltheme__htmlBlock__content h2,
+.lexicaltheme__htmlBlock__content h3,
+.lexicaltheme__htmlBlock__content h4,
+.lexicaltheme__htmlBlock__content h5,
+.lexicaltheme__htmlBlock__content h6 {
+  margin: 0.4em 0;
+  font-weight: bold;
+}
+
+.lexicaltheme__htmlBlock__content h1 { font-size: 2em; }
+.lexicaltheme__htmlBlock__content h2 { font-size: 1.5em; }
+.lexicaltheme__htmlBlock__content h3 { font-size: 1.17em; }
+.lexicaltheme__htmlBlock__content h4 { font-size: 1em; }
+.lexicaltheme__htmlBlock__content h5 { font-size: 0.83em; }
+.lexicaltheme__htmlBlock__content h6 { font-size: 0.67em; }
+
+.lexicaltheme__htmlBlock__content a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lexicaltheme__htmlBlock__content pre {
+  background-color: #f3f4f6;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 0.9em;
+  margin: 0.5em 0;
+}
+
+.lexicaltheme__htmlBlock__content code {
+  background-color: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.lexicaltheme__htmlBlock__content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.lexicaltheme__htmlBlock__content hr {
+  border: none;
+  border-top: 1px solid #d1d5db;
+  margin: 1em 0;
+}
+
+.lexicaltheme__htmlBlock__content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.lexicaltheme__htmlBlock__content p {
+  margin: 0;
 }
 
 .lexicaltheme__dialogbody {

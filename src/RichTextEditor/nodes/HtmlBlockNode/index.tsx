@@ -211,14 +211,70 @@ function HtmlBlockComponent({
       }
     };
 
+    const placeCaret = (x: number, y: number) => {
+      let range: Range | null = null;
+      if (typeof document.caretRangeFromPoint === "function") {
+        range = document.caretRangeFromPoint(x, y);
+      } else if (
+        typeof (document as any).caretPositionFromPoint === "function"
+      ) {
+        const pos = (document as any).caretPositionFromPoint(x, y);
+        if (pos) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.collapse(true);
+        }
+      }
+      const sel = window.getSelection();
+      if (!sel) {
+        return;
+      }
+      if (range && el.contains(range.startContainer)) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        const fallback = document.createRange();
+        if (el.firstChild) {
+          fallback.setStart(el.firstChild, 0);
+        } else {
+          fallback.setStart(el, 0);
+        }
+        fallback.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(fallback);
+      }
+    };
+
+    let pendingFocusRAF = 0;
+
+    const handleMouseDown = (event: Event) => {
+      event.stopPropagation();
+
+      const me = event as MouseEvent;
+      const x = me.clientX;
+      const y = me.clientY;
+      const hadFocus =
+        el === document.activeElement ||
+        el.contains(document.activeElement);
+
+      if (!hadFocus) {
+        cancelAnimationFrame(pendingFocusRAF);
+        pendingFocusRAF = requestAnimationFrame(() => {
+          el.focus();
+          placeCaret(x, y);
+          rememberHtmlBlockSelection(el);
+        });
+      }
+    };
+
     const captureEvents = [
-      "mousedown",
       "pointerdown",
       "mouseup",
       "click",
       "selectstart",
     ] as const;
 
+    el.addEventListener("mousedown", handleMouseDown, true);
     captureEvents.forEach((name) => {
       el.addEventListener(name, stopLexical, true);
     });
@@ -229,6 +285,8 @@ function HtmlBlockComponent({
     el.addEventListener("keyup", saveSelection);
 
     return () => {
+      cancelAnimationFrame(pendingFocusRAF);
+      el.removeEventListener("mousedown", handleMouseDown, true);
       captureEvents.forEach((name) => {
         el.removeEventListener(name, stopLexical, true);
       });
