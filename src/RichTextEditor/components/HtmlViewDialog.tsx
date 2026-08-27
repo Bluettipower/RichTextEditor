@@ -17,7 +17,9 @@ interface HtmlViewDialogProps {
 
 const HtmlViewDialog: React.FC<HtmlViewDialogProps> = (props) => {
   const { editor, onClose, editable = true, importHtmlOptions } = props;
-  const [html, setHtml] = useState(() => $getEditorHtml(editor));
+  const [html, setHtml] = useState(() =>
+    $getEditorHtml(editor, importHtmlOptions)
+  );
   const [error, setError] = useState<string>();
 
   const handleApply = useCallback(() => {

@@ -35,7 +35,6 @@ function isGoogleDocCheckboxImg(img: HTMLImageElement): boolean {
 
 function $convertImageElement(domNode: Node): null | DOMConversionOutput {
   const img = domNode as HTMLImageElement;
-  //* 本地文件或者 Google 文档复选框图像不处理
   if (img.src.startsWith("file:///") || isGoogleDocCheckboxImg(img)) {
     return null;
   }
@@ -120,7 +119,6 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     this.__height = height || "auto";
   }
 
-  //- 序列化节点
   exportJSON(): SerializedImageNode {
     return {
       altText: this.getAltText(),
@@ -150,7 +148,6 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     writable.__altText = altText;
   }
 
-  //- 节点渲染
   createDOM(config: EditorConfig): HTMLElement {
     const span = document.createElement("span");
     const theme = config.theme;

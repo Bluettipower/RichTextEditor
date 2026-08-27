@@ -17,5 +17,4 @@ export {
   $getEditorHtml,
   importHtmlToEditor,
   getEditorHtml,
-  DEFAULT_PRESERVE_TAGS,
 } from "./RichTextEditor";

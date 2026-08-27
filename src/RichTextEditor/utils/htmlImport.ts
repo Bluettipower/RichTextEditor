@@ -6,19 +6,16 @@ import {
   $isElementNode,
   LexicalEditor,
   LexicalNode,
-  TextNode,
 } from "lexical";
 
 import {
   $createHtmlBlockNode,
-  DEFAULT_PRESERVE_TAGS,
+  $isHtmlBlockNode,
 } from "../nodes/HtmlBlockNode";
 
 export interface ImportHtmlOptions {
-  /** 保留 div 等容器节点的原始 HTML 结构，避免 Lexical 扁平化 */
+  /** 为 true 时完整保留 HTML 源码，不做任何 Lexical 转换 */
   preserveStructure?: boolean;
-  /** 需要保留结构的标签，仅在 preserveStructure 为 true 时生效 */
-  preserveTags?: string[];
 }
 
 function wrapInlineNodes(nodes: LexicalNode[]): LexicalNode[] {
@@ -38,61 +35,28 @@ function importHtmlWithLexical(editor: LexicalEditor, html: string): LexicalNode
   return wrapInlineNodes(generatedNodes);
 }
 
-function importHtmlPreserveStructure(
-  editor: LexicalEditor,
-  html: string,
-  preserveTags: string[]
-): LexicalNode[] {
-  const document = new DOMParser().parseFromString(html, "text/html");
-  const body = document.body;
-  const nodes: LexicalNode[] = [];
-
-  body.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent?.trim();
-      if (text) {
-        const paragraph = $createParagraphNode();
-        paragraph.append(new TextNode(text));
-        nodes.push(paragraph);
-      }
-      return;
-    }
-
-    if (child.nodeType !== Node.ELEMENT_NODE) {
-      return;
-    }
-
-    const element = child as HTMLElement;
-    const tag = element.tagName.toLowerCase();
-
-    if (preserveTags.includes(tag)) {
-      nodes.push($createHtmlBlockNode(element.outerHTML, tag));
-      return;
-    }
-
-    if (element.getAttribute("data-lexical-html-block") === "true") {
-      nodes.push($createHtmlBlockNode(element.outerHTML, tag || "div"));
-      return;
-    }
-
-    const fragmentDoc = new DOMParser().parseFromString(
-      element.outerHTML,
-      "text/html"
-    );
-    nodes.push(...wrapInlineNodes($generateNodesFromDOM(editor, fragmentDoc)));
-  });
-
-  return nodes;
+/** preserveStructure 模式下：原样存入单个 HtmlBlockNode，不解析、不改动 */
+function importHtmlPreserveStructure(html: string): LexicalNode[] {
+  return [$createHtmlBlockNode(html)];
 }
 
-/** 将 HTML 导入编辑器，可选保留原始 DOM 结构 */
+export function $getRawHtmlFromEditor(editor: LexicalEditor): string | null {
+  const root = $getRoot();
+  const children = root.getChildren();
+
+  if (children.length === 1 && $isHtmlBlockNode(children[0])) {
+    return children[0].getHtml();
+  }
+
+  return null;
+}
+
+/** 将 HTML 导入编辑器，preserveStructure 为 true 时完整保留源码 */
 export function $setEditorHtml(
   editor: LexicalEditor,
   html: string,
   options: ImportHtmlOptions = {}
 ): void {
-  const preserveTags = options.preserveTags ?? DEFAULT_PRESERVE_TAGS;
-
   editor.update(() => {
     const root = $getRoot();
     root.clear();
@@ -103,13 +67,8 @@ export function $setEditorHtml(
     }
 
     const nodes = options.preserveStructure
-      ? importHtmlPreserveStructure(editor, html, preserveTags)
+      ? importHtmlPreserveStructure(html)
       : importHtmlWithLexical(editor, html);
-
-    if (nodes.length === 0) {
-      root.append($createParagraphNode());
-      return;
-    }
 
     root.append(...nodes);
   });
@@ -118,10 +77,17 @@ export function $setEditorHtml(
 /** 获取编辑器 HTML 内容 */
 export function $getEditorHtml(
   editor: LexicalEditor,
-  _options: ImportHtmlOptions = {}
+  options: ImportHtmlOptions = {}
 ): string {
   let html = "";
   editor.getEditorState().read(() => {
+    if (options.preserveStructure) {
+      const rawHtml = $getRawHtmlFromEditor(editor);
+      if (rawHtml !== null) {
+        html = rawHtml;
+        return;
+      }
+    }
     html = $generateHtmlFromNodes(editor);
   });
   return html;

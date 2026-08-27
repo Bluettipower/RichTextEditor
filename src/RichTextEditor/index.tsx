@@ -67,7 +67,6 @@ export {
   importHtmlToEditor,
 } from "./utils/htmlImport";
 export type { ImportHtmlOptions } from "./utils/htmlImport";
-export { DEFAULT_PRESERVE_TAGS } from "./nodes/HtmlBlockNode";
 export { useRichTextEditor } from "./context/RichTextEditorContext";
 export { ToolbarButton } from "./plugins/ToolbarPlugin";
 
@@ -94,10 +93,8 @@ export interface LnkstoneEditorProps {
   toolbarSlotPosition?: "start" | "end";
   /** 隐藏的内置工具栏按钮，支持单个按钮 key 或分组 key */
   hiddenToolbarItems?: ToolbarHiddenKey[];
-  /** 导入 HTML 时保留 div 等容器结构，避免 Lexical 扁平化 */
+  /** 为 true 时完整保留 HTML 源码，不做任何 Lexical 转换 */
   preserveHtmlStructure?: boolean;
-  /** 需要保留结构的 HTML 标签 */
-  preserveHtmlTags?: string[];
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -116,7 +113,6 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     toolbarSlotPosition = "start",
     hiddenToolbarItems,
     preserveHtmlStructure = false,
-    preserveHtmlTags,
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -147,7 +143,6 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
   }) {
     $setEditorHtml(params.editor, params.value, {
       preserveStructure: preserveHtmlStructure,
-      preserveTags: preserveHtmlTags,
     });
   }
 
@@ -235,7 +230,6 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               hiddenToolbarItems={hiddenToolbarItems}
               importHtmlOptions={{
                 preserveStructure: preserveHtmlStructure,
-                preserveTags: preserveHtmlTags,
               }}
             />
             {max && (
@@ -302,6 +296,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
             )}
             <SerializationPlugin
               onChange={(value) => setRichTextValue(value)}
+              preserveHtmlStructure={preserveHtmlStructure}
             />
             {(isCharLimit || isCharLimitUtf8) && (
               <CharacterLimitPlugin

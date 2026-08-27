@@ -97,7 +97,7 @@ export const HtmlViewReadonly: Story = {
   },
 };
 
-/** 保留 HTML 结构：div 等容器不会被 Lexical 扁平化 */
+/** 完整保留 HTML 源码：不做 Lexical 转换，导入导出均为原始字符串 */
 export const PreserveHtmlStructure: Story = {
   args: {
     id: "my-editor-preserve-html",
@@ -107,7 +107,7 @@ export const PreserveHtmlStructure: Story = {
         <div class="title"><h2>标题区域</h2></div>
         <div class="content"><p>嵌套 div 结构会被完整保留</p></div>
       </div>
-      <p>普通段落仍按 Lexical 节点解析</p>
+      <p><img data-src="https://example.com/image.jpg" alt="示例图" /></p>
     `,
   },
 };

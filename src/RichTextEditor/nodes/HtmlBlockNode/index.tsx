@@ -27,21 +27,9 @@ import { useCallback, useEffect } from "react";
 export type SerializedHtmlBlockNode = Spread<
   {
     html: string;
-    tag: string;
   },
   SerializedLexicalNode
 >;
-
-const DEFAULT_PRESERVE_TAGS = [
-  "div",
-  "section",
-  "article",
-  "header",
-  "footer",
-  "aside",
-  "nav",
-  "main",
-];
 
 function HtmlBlockComponent({
   html,
@@ -124,18 +112,17 @@ function HtmlBlockComponent({
 
 export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
   __html: string;
-  __tag: string;
 
   static getType(): string {
     return "html-block";
   }
 
   static clone(node: HtmlBlockNode): HtmlBlockNode {
-    return new HtmlBlockNode(node.__html, node.__tag, node.__key);
+    return new HtmlBlockNode(node.__html, node.__key);
   }
 
   static importJSON(serializedNode: SerializedHtmlBlockNode): HtmlBlockNode {
-    return $createHtmlBlockNode(serializedNode.html, serializedNode.tag);
+    return $createHtmlBlockNode(serializedNode.html);
   }
 
   static importDOM(): DOMConversionMap | null {
@@ -155,7 +142,6 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
   exportJSON(): SerializedHtmlBlockNode {
     return {
       html: this.__html,
-      tag: this.__tag,
       type: HtmlBlockNode.getType(),
       version: 1,
     };
@@ -163,28 +149,26 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
 
   exportDOM(): DOMExportOutput {
     const template = document.createElement("template");
-    template.innerHTML = this.__html.trim();
+    template.innerHTML = this.__html;
 
-    const element = template.content.firstElementChild;
-    if (element instanceof HTMLElement) {
-      element.setAttribute("data-lexical-html-block", "true");
-      return { element };
+    const fragment = template.content;
+    if (fragment.childNodes.length === 1 && fragment.firstElementChild) {
+      return { element: fragment.firstElementChild as HTMLElement };
     }
 
-    const fallback = document.createElement(this.__tag);
-    fallback.setAttribute("data-lexical-html-block", "true");
-    fallback.innerHTML = this.__html;
-    return { element: fallback };
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("data-lexical-html-block", "true");
+    wrapper.innerHTML = this.__html;
+    return { element: wrapper };
   }
 
-  constructor(html: string, tag = "div", key?: NodeKey) {
+  constructor(html: string, key?: NodeKey) {
     super(key);
     this.__html = html;
-    this.__tag = tag;
   }
 
   createDOM(): HTMLElement {
-    const element = document.createElement(this.__tag);
+    const element = document.createElement("div");
     element.className = "lexicaltheme__htmlBlock";
     element.setAttribute("data-lexical-html-block", "true");
     return element;
@@ -192,6 +176,15 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
 
   updateDOM(): boolean {
     return false;
+  }
+
+  getHtml(): string {
+    return this.__html;
+  }
+
+  setHtml(html: string): void {
+    const writable = this.getWritable();
+    writable.__html = html;
   }
 
   getTextContent(): string {
@@ -210,19 +203,17 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
 }
 
 function $convertHtmlBlockElement(domNode: HTMLElement): DOMConversionOutput {
+  const html =
+    domNode.getAttribute("data-lexical-raw-html") ??
+    domNode.innerHTML;
+
   return {
-    node: $createHtmlBlockNode(
-      domNode.outerHTML,
-      domNode.tagName.toLowerCase()
-    ),
+    node: $createHtmlBlockNode(html),
   };
 }
 
-export function $createHtmlBlockNode(
-  html: string,
-  tag = "div"
-): HtmlBlockNode {
-  return $applyNodeReplacement(new HtmlBlockNode(html, tag));
+export function $createHtmlBlockNode(html: string): HtmlBlockNode {
+  return $applyNodeReplacement(new HtmlBlockNode(html));
 }
 
 export function $isHtmlBlockNode(
@@ -230,5 +221,3 @@ export function $isHtmlBlockNode(
 ): node is HtmlBlockNode {
   return node instanceof HtmlBlockNode;
 }
-
-export { DEFAULT_PRESERVE_TAGS };
