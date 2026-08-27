@@ -96,6 +96,8 @@ export interface LnkstoneEditorProps {
   hiddenToolbarItems?: ToolbarHiddenKey[];
   /** 为 true 时完整保留 HTML 源码，不做任何 Lexical 转换 */
   preserveHtmlStructure?: boolean;
+  /** 为 true 时工具栏在滚动时固定在顶部 */
+  stickyToolbar?: boolean;
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -114,6 +116,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     toolbarSlotPosition = "start",
     hiddenToolbarItems,
     preserveHtmlStructure = false,
+    stickyToolbar = false,
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -229,6 +232,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               toolbarSlots={toolbarSlots}
               toolbarSlotPosition={toolbarSlotPosition}
               hiddenToolbarItems={hiddenToolbarItems}
+              sticky={stickyToolbar}
               importHtmlOptions={{
                 preserveStructure: preserveHtmlStructure,
               }}

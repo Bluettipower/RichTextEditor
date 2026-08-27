@@ -868,6 +868,12 @@ button.toolbarbutton:disabled:hover {
   background-color: white;
 }
 
+.lexicaltheme__toolbar--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .lexicaltheme__toolbar__divider {
   height: 32px;
   margin: 0px 8px;

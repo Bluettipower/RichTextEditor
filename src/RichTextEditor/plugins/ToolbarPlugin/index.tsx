@@ -205,6 +205,8 @@ interface ToolbarPluginProps {
   hiddenToolbarItems?: ToolbarHiddenKey[];
   /** HTML 导入选项（HTML 源码弹窗应用时使用） */
   importHtmlOptions?: ImportHtmlOptions;
+  /** 工具栏是否在滚动时固定在顶部 */
+  sticky?: boolean;
 }
 
 const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
@@ -217,6 +219,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     toolbarSlotPosition = "start",
     hiddenToolbarItems = [],
     importHtmlOptions,
+    sticky = false,
   } = props;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasCollapsedGroups = collapsedGroups.length > 0;
@@ -1130,7 +1133,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   const toolbarGroups = _renderToolbarGroup();
 
   return (
-    <div ref={toolbarRef} className="lexicaltheme__toolbar">
+    <div ref={toolbarRef} className={clsx("lexicaltheme__toolbar", sticky && "lexicaltheme__toolbar--sticky")}>
       {startSlots.length > 0 && (
         <>
           {startSlots}
