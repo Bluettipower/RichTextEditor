@@ -83,6 +83,25 @@ function HtmlBlockComponent({
     if (el.innerHTML !== html) {
       el.innerHTML = html;
       lastSyncedHtml.current = html;
+
+      // HTML 更新后自动聚焦并将光标放到内容开头
+      requestAnimationFrame(() => {
+        if (document.activeElement !== el) {
+          el.focus();
+          const selection = window.getSelection();
+          if (selection) {
+            const range = document.createRange();
+            if (el.firstChild) {
+              range.setStart(el.firstChild, 0);
+            } else {
+              range.setStart(el, 0);
+            }
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      });
     }
   }, [html]);
 
@@ -96,6 +115,36 @@ function HtmlBlockComponent({
       event.stopPropagation();
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMod = event.ctrlKey || event.metaKey;
+      if (!isMod) {
+        return;
+      }
+
+      // Ctrl+Z 撤销
+      if (event.key === "z" && !event.shiftKey) {
+        event.stopPropagation();
+        event.preventDefault();
+        document.execCommand("undo", false);
+        syncHtmlToNode(el.innerHTML);
+        rememberHtmlBlockSelection(el);
+        return;
+      }
+
+      // Ctrl+Shift+Z 或 Ctrl+Y 重做
+      if (
+        (event.key === "z" && event.shiftKey) ||
+        event.key === "y"
+      ) {
+        event.stopPropagation();
+        event.preventDefault();
+        document.execCommand("redo", false);
+        syncHtmlToNode(el.innerHTML);
+        rememberHtmlBlockSelection(el);
+        return;
+      }
+    };
+
     const captureEvents = [
       "mousedown",
       "pointerdown",
@@ -107,6 +156,7 @@ function HtmlBlockComponent({
     captureEvents.forEach((name) => {
       el.addEventListener(name, stopLexical, true);
     });
+    el.addEventListener("keydown", handleKeyDown, true);
 
     const saveSelection = () => rememberHtmlBlockSelection(el);
     el.addEventListener("mouseup", saveSelection);
@@ -116,10 +166,11 @@ function HtmlBlockComponent({
       captureEvents.forEach((name) => {
         el.removeEventListener(name, stopLexical, true);
       });
+      el.removeEventListener("keydown", handleKeyDown, true);
       el.removeEventListener("mouseup", saveSelection);
       el.removeEventListener("keyup", saveSelection);
     };
-  }, []);
+  }, [syncHtmlToNode]);
 
   const $onDelete = useCallback(
     (event: KeyboardEvent) => {
