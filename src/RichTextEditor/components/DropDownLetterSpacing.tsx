@@ -4,6 +4,11 @@ import { useCallback } from "react";
 import { range } from "lodash";
 
 import DropDown, { DropDownItem } from "./DropDown";
+import {
+  applyHtmlBlockFormatAndSync,
+  applyHtmlBlockStyleText,
+  isPreserveHtmlBlockMode,
+} from "../utils/htmlBlockFormatting";
 
 interface DropDownLetterSpacingProps {
   selectionLetterSpacing?: string;
@@ -17,6 +22,13 @@ const DropDownLetterSpacing: React.FC<DropDownLetterSpacingProps> = (props) => {
 
   const updateLetterSpacingInSelection = useCallback(
     (newValue: string) => {
+      if (isPreserveHtmlBlockMode(editor)) {
+        applyHtmlBlockFormatAndSync(editor, () =>
+          applyHtmlBlockStyleText({ "letter-spacing": newValue })
+        );
+        return;
+      }
+
       editor.update(() => {
         if (editor.isEditable()) {
           const selection = $getSelection();

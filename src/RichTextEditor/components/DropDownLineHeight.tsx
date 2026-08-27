@@ -3,6 +3,11 @@ import { $getSelection, LexicalEditor } from "lexical";
 import { useCallback } from "react";
 
 import DropDown, { DropDownItem } from "./DropDown";
+import {
+  applyHtmlBlockFormatAndSync,
+  applyHtmlBlockStyleText,
+  isPreserveHtmlBlockMode,
+} from "../utils/htmlBlockFormatting";
 
 interface DropDownDropDownLineHeightProps {
   selectionLineHeight?: string;
@@ -18,6 +23,13 @@ const DropDownLineHeight: React.FC<DropDownDropDownLineHeightProps> = (
 
   const updateLineHeightInSelection = useCallback(
     (newValue: string) => {
+      if (isPreserveHtmlBlockMode(editor)) {
+        applyHtmlBlockFormatAndSync(editor, () =>
+          applyHtmlBlockStyleText({ "line-height": newValue })
+        );
+        return;
+      }
+
       editor.update(() => {
         if (editor.isEditable()) {
           const selection = $getSelection();

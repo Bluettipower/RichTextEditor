@@ -22,7 +22,9 @@ import {
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
 } from "lexical";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { rememberHtmlBlockSelection } from "../../utils/htmlBlockFormatting";
 
 export type SerializedHtmlBlockNode = Spread<
   {
@@ -39,25 +41,112 @@ function HtmlBlockComponent({
   nodeKey: NodeKey;
 }) {
   const [editor] = useLexicalComposerContext();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const lastSyncedHtml = useRef(html);
   const [isSelected, setSelected, clearSelection] =
     useLexicalNodeSelection(nodeKey);
+  const [editable, setEditable] = useState(() => editor.isEditable());
+
+  const syncHtmlToNode = useCallback(
+    (newHtml: string) => {
+      if (newHtml === lastSyncedHtml.current) {
+        return;
+      }
+      lastSyncedHtml.current = newHtml;
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if ($isHtmlBlockNode(node)) {
+          node.setHtml(newHtml);
+        }
+      });
+    },
+    [editor, nodeKey]
+  );
+
+  const handleInput = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) {
+      return;
+    }
+    syncHtmlToNode(el.innerHTML);
+  }, [syncHtmlToNode]);
+
+  useEffect(() => {
+    return editor.registerEditableListener(setEditable);
+  }, [editor]);
+
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el || document.activeElement === el) {
+      return;
+    }
+    if (el.innerHTML !== html) {
+      el.innerHTML = html;
+      lastSyncedHtml.current = html;
+    }
+  }, [html]);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) {
+      return;
+    }
+
+    const stopLexical = (event: Event) => {
+      event.stopPropagation();
+    };
+
+    const captureEvents = [
+      "mousedown",
+      "pointerdown",
+      "mouseup",
+      "click",
+      "selectstart",
+    ] as const;
+
+    captureEvents.forEach((name) => {
+      el.addEventListener(name, stopLexical, true);
+    });
+
+    const saveSelection = () => rememberHtmlBlockSelection(el);
+    el.addEventListener("mouseup", saveSelection);
+    el.addEventListener("keyup", saveSelection);
+
+    return () => {
+      captureEvents.forEach((name) => {
+        el.removeEventListener(name, stopLexical, true);
+      });
+      el.removeEventListener("mouseup", saveSelection);
+      el.removeEventListener("keyup", saveSelection);
+    };
+  }, []);
 
   const $onDelete = useCallback(
     (event: KeyboardEvent) => {
+      const element = editor.getElementByKey(nodeKey);
+      const contentEl = element?.querySelector(
+        ".lexicaltheme__htmlBlock__content"
+      );
+      if (contentEl?.contains(document.activeElement)) {
+        return false;
+      }
+
+      let shouldDelete = false;
+      editor.getEditorState().read(() => {
+        const selection = $getSelection();
+        shouldDelete =
+          $isNodeSelection(selection) && selection.has(nodeKey);
+      });
+
+      if (!shouldDelete) {
+        return false;
+      }
+
       event.preventDefault();
       editor.update(() => {
-        const selection = $getSelection();
-        if ($isNodeSelection(selection)) {
-          selection.getNodes().forEach((node) => {
-            if ($isHtmlBlockNode(node)) {
-              node.remove();
-            }
-          });
-        } else {
-          const node = $getNodeByKey(nodeKey);
-          if ($isHtmlBlockNode(node)) {
-            node.remove();
-          }
+        const node = $getNodeByKey(nodeKey);
+        if ($isHtmlBlockNode(node)) {
+          node.remove();
         }
       });
       return true;
@@ -71,6 +160,13 @@ function HtmlBlockComponent({
         CLICK_COMMAND,
         (event: MouseEvent) => {
           const element = editor.getElementByKey(nodeKey);
+          const contentEl = element?.querySelector(
+            ".lexicaltheme__htmlBlock__content"
+          );
+          if (contentEl?.contains(event.target as Node)) {
+            clearSelection();
+            return true;
+          }
           if (element?.contains(event.target as Node)) {
             if (!event.shiftKey) {
               clearSelection();
@@ -80,7 +176,7 @@ function HtmlBlockComponent({
           }
           return false;
         },
-        COMMAND_PRIORITY_LOW
+        COMMAND_PRIORITY_HIGH
       ),
       editor.registerCommand(
         KEY_DELETE_COMMAND,
@@ -104,8 +200,12 @@ function HtmlBlockComponent({
 
   return (
     <div
+      ref={contentRef}
       className="lexicaltheme__htmlBlock__content"
-      dangerouslySetInnerHTML={{ __html: html }}
+      contentEditable={editable}
+      suppressContentEditableWarning
+      onInput={handleInput}
+      onBlur={handleInput}
     />
   );
 }
@@ -171,10 +271,15 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
     const element = document.createElement("div");
     element.className = "lexicaltheme__htmlBlock";
     element.setAttribute("data-lexical-html-block", "true");
+    element.setAttribute("contenteditable", "false");
     return element;
   }
 
   updateDOM(): boolean {
+    return false;
+  }
+
+  isKeyboardSelectable(): boolean {
     return false;
   }
 
@@ -204,8 +309,7 @@ export class HtmlBlockNode extends DecoratorNode<JSX.Element> {
 
 function $convertHtmlBlockElement(domNode: HTMLElement): DOMConversionOutput {
   const html =
-    domNode.getAttribute("data-lexical-raw-html") ??
-    domNode.innerHTML;
+    domNode.getAttribute("data-lexical-raw-html") ?? domNode.innerHTML;
 
   return {
     node: $createHtmlBlockNode(html),

@@ -65,6 +65,18 @@ import HtmlViewDialog from "../../components/HtmlViewDialog";
 import { renderToolbarSlots } from "../../utils/renderToolbarSlots";
 import type { ImportHtmlOptions } from "../../utils/htmlImport";
 import {
+  applyHtmlBlockFormatAndSync,
+  applyHtmlBlockHeading,
+  applyHtmlBlockLink,
+  applyHtmlBlockList,
+  applyHtmlBlockQuote,
+  applyHtmlBlockStyleText,
+  clearHtmlBlockFormatting,
+  isHtmlBlockEditing,
+  isPreserveHtmlBlockMode,
+  readHtmlBlockToolbarState,
+} from "../../utils/htmlBlockFormatting";
+import {
   hasVisibleToolbarItems,
   isToolbarItemHidden,
   type ToolbarGroupKey,
@@ -264,6 +276,33 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
 
   //- update toolbar state
   const $updateToolbar = useCallback(() => {
+    if (importHtmlOptions?.preserveStructure) {
+      const htmlState = readHtmlBlockToolbarState(activeEditor);
+      if (htmlState) {
+        if (htmlState.blockType in blockTypeToBlockName) {
+          setBlockType(
+            htmlState.blockType as keyof typeof blockTypeToBlockName
+          );
+        } else {
+          setBlockType("paragraph");
+        }
+        setFontSize(htmlState.fontSize);
+        setLineHeight(htmlState.lineHeight);
+        setLetterSpacing(htmlState.letterSpacing);
+        setFontColor(htmlState.fontColor);
+        setBgColor(htmlState.bgColor);
+        setIsBold(htmlState.isBold);
+        setIsItalic(htmlState.isItalic);
+        setIsUnderline(htmlState.isUnderline);
+        setIsStrikethrough(htmlState.isStrikethrough);
+        setIsSubscript(htmlState.isSubscript);
+        setIsSuperscript(htmlState.isSuperscript);
+        setElementFormat(htmlState.elementFormat);
+        setIsLink(htmlState.isLink);
+        return;
+      }
+    }
+
     const selection = $getSelection();
     if ($isRangeSelection(selection)) {
       const anchorNode = selection.anchor.getNode();
@@ -358,7 +397,30 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
         $getSelectionStyleValueForProperty(selection, "letter-spacing", "0px")
       );
     }
-  }, [activeEditor]);
+  }, [activeEditor, importHtmlOptions?.preserveStructure]);
+
+  useEffect(() => {
+    if (!importHtmlOptions?.preserveStructure) {
+      return;
+    }
+
+    let rafId = 0;
+    const onSelectionChange = () => {
+      if (!isHtmlBlockEditing()) {
+        return;
+      }
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        $updateToolbar();
+      });
+    };
+
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("selectionchange", onSelectionChange);
+    };
+  }, [importHtmlOptions?.preserveStructure, $updateToolbar]);
 
   //- register editor
   useEffect(() => {
@@ -422,6 +484,14 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   //- handle text style changes
   const applyStyleText = useCallback(
     (styles: Record<string, string>, skipHistoryStack?: boolean) => {
+      if (importHtmlOptions?.preserveStructure && isPreserveHtmlBlockMode(activeEditor)) {
+        applyHtmlBlockFormatAndSync(activeEditor, () =>
+          applyHtmlBlockStyleText(styles)
+        );
+        $updateToolbar();
+        return;
+      }
+
       activeEditor.update(
         () => {
           const selection = $getSelection();
@@ -430,11 +500,17 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
         skipHistoryStack ? { tag: "historic" } : {}
       );
     },
-    [activeEditor]
+    [activeEditor, importHtmlOptions?.preserveStructure, $updateToolbar]
   );
 
   //-
   const clearFormatting = useCallback(() => {
+    if (importHtmlOptions?.preserveStructure && isPreserveHtmlBlockMode(activeEditor)) {
+      applyHtmlBlockFormatAndSync(activeEditor, clearHtmlBlockFormatting);
+      $updateToolbar();
+      return;
+    }
+
     activeEditor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
@@ -479,7 +555,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
         });
       }
     });
-  }, [activeEditor]);
+  }, [activeEditor, importHtmlOptions?.preserveStructure, $updateToolbar]);
 
   //- font color handler
   const onFontColorSelect = useCallback(
@@ -498,6 +574,24 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   );
 
   const insertLink = useCallback(() => {
+    // 在 HTML 块模式下使用 DOM API 处理链接
+    if (
+      importHtmlOptions?.preserveStructure &&
+      isPreserveHtmlBlockMode(activeEditor)
+    ) {
+      if (!isLink) {
+        applyHtmlBlockFormatAndSync(activeEditor, () =>
+          applyHtmlBlockLink(sanitizeUrl("https://"))
+        );
+      } else {
+        applyHtmlBlockFormatAndSync(activeEditor, () =>
+          applyHtmlBlockLink(null)
+        );
+      }
+      $updateToolbar();
+      return;
+    }
+
     if (!isLink) {
       activeEditor.dispatchCommand(
         TOGGLE_LINK_COMMAND,
@@ -506,9 +600,17 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     } else {
       activeEditor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
     }
-  }, [activeEditor, isLink]);
+  }, [activeEditor, isLink, importHtmlOptions?.preserveStructure, $updateToolbar]);
 
   const formatParagraph = () => {
+    if (importHtmlOptions?.preserveStructure && isPreserveHtmlBlockMode(activeEditor)) {
+      applyHtmlBlockFormatAndSync(activeEditor, () =>
+        applyHtmlBlockHeading("paragraph")
+      );
+      $updateToolbar();
+      return;
+    }
+
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
@@ -755,6 +857,17 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
               disabled={disabled}
               active={blockType === "bullet"}
               onClick={() => {
+                // 在 HTML 块模式下，execCommand 的列表命令本身是切换命令
+                if (
+                  importHtmlOptions?.preserveStructure &&
+                  isPreserveHtmlBlockMode(activeEditor)
+                ) {
+                  applyHtmlBlockFormatAndSync(activeEditor, () =>
+                    applyHtmlBlockList(false)
+                  );
+                  $updateToolbar();
+                  return;
+                }
                 if (blockType !== "bullet") {
                   editor.dispatchCommand(
                     INSERT_UNORDERED_LIST_COMMAND,
@@ -773,6 +886,17 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
               disabled={disabled}
               active={blockType === "number"}
               onClick={() => {
+                // 在 HTML 块模式下，execCommand 的列表命令本身是切换命令
+                if (
+                  importHtmlOptions?.preserveStructure &&
+                  isPreserveHtmlBlockMode(activeEditor)
+                ) {
+                  applyHtmlBlockFormatAndSync(activeEditor, () =>
+                    applyHtmlBlockList(true)
+                  );
+                  $updateToolbar();
+                  return;
+                }
                 if (blockType !== "number") {
                   editor.dispatchCommand(
                     INSERT_ORDERED_LIST_COMMAND,
@@ -791,6 +915,17 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
               disabled={disabled}
               active={blockType === "check"}
               onClick={() => {
+                if (
+                  importHtmlOptions?.preserveStructure &&
+                  isPreserveHtmlBlockMode(activeEditor)
+                ) {
+                  // HTML 块模式下使用无序列表模拟 checklist
+                  applyHtmlBlockFormatAndSync(activeEditor, () =>
+                    applyHtmlBlockList(false)
+                  );
+                  $updateToolbar();
+                  return;
+                }
                 if (blockType !== "check") {
                   editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
                 } else {
@@ -806,6 +941,22 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
               disabled={disabled}
               active={blockType === "quote"}
               onClick={() => {
+                if (
+                  importHtmlOptions?.preserveStructure &&
+                  isPreserveHtmlBlockMode(activeEditor)
+                ) {
+                  if (blockType !== "quote") {
+                    applyHtmlBlockFormatAndSync(activeEditor, () =>
+                      applyHtmlBlockQuote()
+                    );
+                  } else {
+                    applyHtmlBlockFormatAndSync(activeEditor, () =>
+                      applyHtmlBlockHeading("paragraph")
+                    );
+                  }
+                  $updateToolbar();
+                  return;
+                }
                 if (blockType !== "quote") {
                   editor.update(() => {
                     const selection = $getSelection();

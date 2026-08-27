@@ -7,6 +7,11 @@ import {
 } from "lexical";
 
 import { IconEmojiEmotions } from "../icons";
+import {
+  applyHtmlBlockFormatAndSync,
+  insertHtmlBlockEmoji,
+  isPreserveHtmlBlockMode,
+} from "../utils/htmlBlockFormatting";
 
 import DropDown from "./DropDown";
 
@@ -36,11 +41,18 @@ const DropdownEmoji: React.FC<DropdownEmojiProps> = (props) => {
 
   const onSelectOption = useCallback(
     (selectedOption: Emoji) => {
+      if (selectedOption == null) return;
+
+      if (isPreserveHtmlBlockMode(editor)) {
+        applyHtmlBlockFormatAndSync(editor, () =>
+          insertHtmlBlockEmoji(selectedOption.emoji)
+        );
+        return;
+      }
+
       editor.update(() => {
         const selection = $getSelection();
-
-        if (!$isRangeSelection(selection) || selectedOption == null) return;
-
+        if (!$isRangeSelection(selection)) return;
         selection.insertNodes([$createTextNode(selectedOption.emoji)]);
       });
     },

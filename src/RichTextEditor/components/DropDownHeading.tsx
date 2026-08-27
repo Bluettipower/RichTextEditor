@@ -11,6 +11,12 @@ import {
 } from "lexical";
 
 import DropDown, { DropDownItem } from "./DropDown";
+import {
+  applyHtmlBlockFormatAndSync,
+  applyHtmlBlockHeading,
+  applyHtmlBlockStyleText,
+  isPreserveHtmlBlockMode,
+} from "../utils/htmlBlockFormatting";
 
 const headingOptions: {
   tag: HeadingTagType | "paragraph";
@@ -36,6 +42,13 @@ const DropDownHeading: React.FC<DropDownHeadingProps> = (props) => {
 
   const formatHeading = (headingTag: HeadingTagType | "paragraph") => {
     if (headingTag === blockType) {
+      return;
+    }
+
+    if (isPreserveHtmlBlockMode(editor)) {
+      applyHtmlBlockFormatAndSync(editor, () =>
+        applyHtmlBlockHeading(headingTag)
+      );
       return;
     }
 

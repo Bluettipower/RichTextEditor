@@ -913,6 +913,11 @@ button.toolbarbutton:disabled:hover {
   margin: 8px 0;
 }
 
+.lexicaltheme__htmlBlock[contenteditable="false"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .lexicaltheme__htmlBlock_selected {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
@@ -920,6 +925,14 @@ button.toolbarbutton:disabled:hover {
 
 .lexicaltheme__htmlBlock__content {
   width: 100%;
+  outline: none;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.lexicaltheme__htmlBlock__content:focus {
+  outline: none;
 }
 
 .lexicaltheme__dialogbody {

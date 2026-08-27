@@ -31,6 +31,7 @@ import LinkPlugin from "./plugins/LinkPlugin";
 import FloatingTextFormatToolbarPlugin from "./plugins/FloatingTextFormatToolbarPlugin";
 import YouTubePlugin from "./plugins/YouTubePlugin";
 import SerializationPlugin from "./plugins/SerializationPlugin";
+import HtmlBlockToolbarPlugin from "./plugins/HtmlBlockToolbarPlugin";
 import {
   LexicalEditor,
   TextNode,
@@ -298,6 +299,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               onChange={(value) => setRichTextValue(value)}
               preserveHtmlStructure={preserveHtmlStructure}
             />
+            {preserveHtmlStructure && <HtmlBlockToolbarPlugin />}
             {(isCharLimit || isCharLimitUtf8) && (
               <CharacterLimitPlugin
                 charset={isCharLimit ? "UTF-16" : "UTF-8"}

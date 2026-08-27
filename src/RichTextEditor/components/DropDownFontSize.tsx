@@ -3,6 +3,11 @@ import { $getSelection, LexicalEditor } from "lexical";
 import { useCallback } from "react";
 
 import DropDown, { DropDownItem } from "./DropDown";
+import {
+  applyHtmlBlockFormatAndSync,
+  applyHtmlBlockStyleText,
+  isPreserveHtmlBlockMode,
+} from "../utils/htmlBlockFormatting";
 
 interface DropDownFontSizeProps {
   selectionFontSize: string;
@@ -38,6 +43,13 @@ const DropDownFontSize: React.FC<DropDownFontSizeProps> = (props) => {
 
   const updateFontSizeInSelection = useCallback(
     (newFontSize: string) => {
+      if (isPreserveHtmlBlockMode(editor)) {
+        applyHtmlBlockFormatAndSync(editor, () =>
+          applyHtmlBlockStyleText({ "font-size": newFontSize })
+        );
+        return;
+      }
+
       editor.update(() => {
         if (editor.isEditable()) {
           const selection = $getSelection();

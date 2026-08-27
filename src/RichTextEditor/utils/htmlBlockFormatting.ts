@@ -1,0 +1,926 @@
+import type { ElementFormatType, LexicalEditor, TextFormatType } from "lexical";
+import { $getRoot } from "lexical";
+
+import { $isHtmlBlockNode } from "../nodes/HtmlBlockNode";
+
+export const HTML_BLOCK_CONTENT_CLASS = "lexicaltheme__htmlBlock__content";
+
+let savedHtmlBlockRange: Range | null = null;
+
+function saveHtmlBlockSelection(content: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return;
+  }
+  const range = selection.getRangeAt(0);
+  if (content.contains(range.commonAncestorContainer)) {
+    savedHtmlBlockRange = range.cloneRange();
+  }
+}
+
+function restoreHtmlBlockSelection(content: HTMLElement): boolean {
+  if (!savedHtmlBlockRange || !content.contains(savedHtmlBlockRange.commonAncestorContainer)) {
+    return false;
+  }
+  content.focus();
+  const selection = window.getSelection();
+  if (!selection) {
+    return false;
+  }
+  selection.removeAllRanges();
+  selection.addRange(savedHtmlBlockRange);
+  return true;
+}
+
+export function getHtmlBlockContentForToolbar(
+  editor: LexicalEditor
+): HTMLElement | null {
+  const active = getActiveHtmlBlockContent();
+  if (active) {
+    saveHtmlBlockSelection(active);
+    return active;
+  }
+
+  const content = getHtmlBlockContentElement(editor);
+  if (content) {
+    restoreHtmlBlockSelection(content);
+  }
+
+  return content;
+}
+
+function getHtmlBlockContentElement(editor: LexicalEditor): HTMLElement | null {
+  const active = getActiveHtmlBlockContent();
+  if (active) {
+    return active;
+  }
+
+  let content: HTMLElement | null = null;
+  editor.getEditorState().read(() => {
+    const root = $getRoot();
+    const children = root.getChildren();
+    if (children.length === 1 && $isHtmlBlockNode(children[0])) {
+      const dom = editor.getElementByKey(children[0].getKey());
+      content =
+        (dom?.querySelector(
+          `.${HTML_BLOCK_CONTENT_CLASS}`
+        ) as HTMLElement | null) ?? null;
+    }
+  });
+
+  return content;
+}
+
+function withHtmlBlockContent(
+  editor: LexicalEditor,
+  fn: (content: HTMLElement) => boolean
+): boolean {
+  const content = getHtmlBlockContentForToolbar(editor);
+  if (!content) {
+    return false;
+  }
+  restoreHtmlBlockSelection(content);
+  const result = fn(content);
+  saveHtmlBlockSelection(content);
+  return result;
+}
+
+export interface HtmlBlockToolbarState {
+  blockType: string;
+  fontSize: string;
+  lineHeight?: string;
+  letterSpacing?: string;
+  fontColor: string;
+  bgColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  isStrikethrough: boolean;
+  isSubscript: boolean;
+  isSuperscript: boolean;
+  elementFormat: ElementFormatType;
+  isLink: boolean;
+}
+
+export function rememberHtmlBlockSelection(content: HTMLElement): void {
+  saveHtmlBlockSelection(content);
+}
+
+export function getActiveHtmlBlockContent(): HTMLElement | null {
+  const active = document.activeElement;
+  if (
+    active instanceof HTMLElement &&
+    active.classList.contains(HTML_BLOCK_CONTENT_CLASS)
+  ) {
+    return active;
+  }
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return null;
+  }
+
+  const anchor = selection.anchorNode;
+  if (!anchor) {
+    return null;
+  }
+
+  const element =
+    anchor.nodeType === Node.ELEMENT_NODE
+      ? (anchor as HTMLElement)
+      : anchor.parentElement;
+
+  return (
+    (element?.closest(
+      `.${HTML_BLOCK_CONTENT_CLASS}`
+    ) as HTMLElement | null) ?? null
+  );
+}
+
+export function isHtmlBlockEditing(): boolean {
+  return getActiveHtmlBlockContent() !== null;
+}
+
+export function isPreserveHtmlBlockMode(editor: LexicalEditor): boolean {
+  if (isHtmlBlockEditing()) {
+    return true;
+  }
+
+  let hasHtmlBlock = false;
+  editor.getEditorState().read(() => {
+    const root = $getRoot();
+    const children = root.getChildren();
+    hasHtmlBlock = children.length === 1 && $isHtmlBlockNode(children[0]);
+  });
+  return hasHtmlBlock;
+}
+
+function getSelectionElement(): HTMLElement | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return null;
+  }
+  const anchor = selection.anchorNode;
+  if (!anchor) {
+    return null;
+  }
+  return anchor.nodeType === Node.ELEMENT_NODE
+    ? (anchor as HTMLElement)
+    : anchor.parentElement;
+}
+
+function getClosestBlock(
+  content: HTMLElement,
+  node: Node | null
+): HTMLElement | null {
+  let current: Node | null = node;
+  while (current && current !== content) {
+    if (current instanceof HTMLElement) {
+      const tag = current.tagName.toLowerCase();
+      if (
+        /^(p|div|h[1-6]|li|blockquote|pre)$/.test(tag) ||
+        current.classList.contains(HTML_BLOCK_CONTENT_CLASS)
+      ) {
+        if (!current.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
+          return current;
+        }
+      }
+    }
+    current = current.parentNode;
+  }
+  return content;
+}
+
+function wrapRangeWithSpan(range: Range, styles: Record<string, string>): void {
+  const span = document.createElement("span");
+  for (const [key, value] of Object.entries(styles)) {
+    span.style.setProperty(key, value);
+  }
+
+  try {
+    range.surroundContents(span);
+  } catch {
+    const fragment = range.extractContents();
+    span.appendChild(fragment);
+    range.insertNode(span);
+  }
+
+  const selection = window.getSelection();
+  if (selection) {
+    selection.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    selection.addRange(newRange);
+    savedHtmlBlockRange = newRange.cloneRange();
+  }
+}
+
+function stripStyleFromNodeTree(root: ParentNode, property: string): void {
+  const elements =
+    root instanceof HTMLElement
+      ? [root, ...Array.from(root.querySelectorAll("*"))]
+      : Array.from(root.querySelectorAll("*"));
+
+  for (const element of elements) {
+    if (!(element instanceof HTMLElement)) {
+      continue;
+    }
+    element.style.removeProperty(property);
+    if (
+      element.tagName === "SPAN" &&
+      element.getAttribute("style")?.trim() === ""
+    ) {
+      unwrapElement(element);
+    }
+  }
+}
+
+function unwrapElement(element: HTMLElement): void {
+  const parent = element.parentNode;
+  if (!parent) {
+    return;
+  }
+  while (element.firstChild) {
+    parent.insertBefore(element.firstChild, element);
+  }
+  parent.removeChild(element);
+}
+
+function isRangeFullyContainedIn(
+  range: Range,
+  container: Node
+): boolean {
+  const containerRange = document.createRange();
+  containerRange.selectNodeContents(container);
+  return (
+    range.compareBoundaryPoints(Range.START_TO_START, containerRange) >= 0 &&
+    range.compareBoundaryPoints(Range.END_TO_END, containerRange) <= 0
+  );
+}
+
+function clearBlockStyleOnAncestors(
+  content: HTMLElement,
+  node: Node,
+  property: string
+): void {
+  let current: Node | null =
+    node instanceof HTMLElement ? node.parentElement : node.parentNode;
+
+  while (current instanceof HTMLElement && current !== content) {
+    const tag = current.tagName.toLowerCase();
+    if (/^(p|div|h[1-6]|li|blockquote|pre)$/.test(tag)) {
+      current.style.removeProperty(property);
+    }
+    current = current.parentElement;
+  }
+}
+
+function selectElementContents(element: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+  selection.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(element);
+  selection.addRange(newRange);
+  savedHtmlBlockRange = newRange.cloneRange();
+}
+
+function findStyleWrapperInRange(
+  range: Range,
+  property: string
+): HTMLElement | null {
+  let node: Node | null = range.commonAncestorContainer;
+  if (node.nodeType === Node.TEXT_NODE) {
+    node = node.parentElement;
+  }
+
+  while (node instanceof HTMLElement) {
+    if (
+      node.tagName === "SPAN" &&
+      node.style.getPropertyValue(property) &&
+      isRangeFullyContainedIn(range, node)
+    ) {
+      return node;
+    }
+    if (node.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
+      break;
+    }
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+function applyStyleToSelection(
+  content: HTMLElement,
+  range: Range,
+  property: string,
+  value: string,
+  applyToBlockWhenCollapsed = true
+): void {
+  if (range.collapsed && applyToBlockWhenCollapsed) {
+    const block = getClosestBlock(content, range.startContainer);
+    if (block) {
+      block.style.setProperty(property, value);
+    }
+    return;
+  }
+
+  const existingWrapper = findStyleWrapperInRange(range, property);
+  if (existingWrapper) {
+    existingWrapper.style.setProperty(property, value);
+    clearBlockStyleOnAncestors(content, existingWrapper, property);
+    selectElementContents(existingWrapper);
+    return;
+  }
+
+  const startNode = range.startContainer;
+  clearBlockStyleOnAncestors(content, startNode, property);
+
+  const fragment = range.extractContents();
+  stripStyleFromNodeTree(fragment, property);
+
+  const wrapper = document.createElement("span");
+  wrapper.style.setProperty(property, value);
+  wrapper.appendChild(fragment);
+  range.insertNode(wrapper);
+  selectElementContents(wrapper);
+}
+
+function applyInlineStyles(styles: Record<string, string>): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  content.focus();
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0).cloneRange();
+  const blockStyleKeys = ["line-height", "letter-spacing"] as const;
+
+  for (const key of blockStyleKeys) {
+    if (!(key in styles)) {
+      continue;
+    }
+    applyStyleToSelection(
+      content,
+      selection.getRangeAt(0).cloneRange(),
+      key,
+      styles[key]
+    );
+    return true;
+  }
+
+  if (range.collapsed) {
+    wrapRangeWithSpan(range, styles);
+    return true;
+  }
+
+  wrapRangeWithSpan(range, styles);
+  return true;
+}
+
+export function syncActiveHtmlBlockToNode(editor: LexicalEditor): void {
+  const content = getActiveHtmlBlockContent();
+  if (content) {
+    syncHtmlBlockContentToNode(editor, content);
+  }
+}
+
+function syncHtmlBlockContentToNode(
+  editor: LexicalEditor,
+  content: HTMLElement
+): void {
+  editor.update(() => {
+    const root = $getRoot();
+    for (const child of root.getChildren()) {
+      if (!$isHtmlBlockNode(child)) {
+        continue;
+      }
+      const dom = editor.getElementByKey(child.getKey());
+      if (dom?.contains(content)) {
+        child.setHtml(content.innerHTML);
+        break;
+      }
+    }
+  });
+  saveHtmlBlockSelection(content);
+}
+
+export function applyHtmlBlockFormatAndSync(
+  editor: LexicalEditor,
+  apply: () => boolean
+): boolean {
+  return withHtmlBlockContent(editor, (content) => {
+    if (!apply()) {
+      return false;
+    }
+    syncHtmlBlockContentToNode(editor, content);
+    return true;
+  });
+}
+
+export function applyHtmlBlockTextFormat(format: TextFormatType): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  content.focus();
+
+  const commandMap: Partial<Record<TextFormatType, string>> = {
+    bold: "bold",
+    italic: "italic",
+    underline: "underline",
+    strikethrough: "strikeThrough",
+    subscript: "subscript",
+    superscript: "superscript",
+  };
+
+  const command = commandMap[format];
+  if (!command) {
+    return false;
+  }
+
+  document.execCommand(command, false);
+  return true;
+}
+
+export function applyHtmlBlockStyleText(
+  styles: Record<string, string>
+): boolean {
+  if ("color" in styles) {
+    const content = getActiveHtmlBlockContent();
+    if (!content) {
+      return false;
+    }
+    content.focus();
+    document.execCommand("foreColor", false, styles.color);
+    return true;
+  }
+
+  if ("background-color" in styles) {
+    const content = getActiveHtmlBlockContent();
+    if (!content) {
+      return false;
+    }
+    content.focus();
+    document.execCommand("hiliteColor", false, styles["background-color"]);
+    return true;
+  }
+
+  return applyInlineStyles(styles);
+}
+
+export function applyHtmlBlockHeading(
+  headingTag: string | "paragraph"
+): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  content.focus();
+  document.execCommand(
+    "formatBlock",
+    false,
+    headingTag === "paragraph" ? "p" : headingTag
+  );
+  return true;
+}
+
+export function applyHtmlBlockElementFormat(
+  format: ElementFormatType
+): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const block = getClosestBlock(content, selection.anchorNode);
+  if (!block || block === content) {
+    content.style.textAlign = format;
+    return true;
+  }
+
+  block.style.textAlign = format;
+  return true;
+}
+
+export function applyHtmlBlockIndent(outdent = false): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+  document.execCommand(outdent ? "outdent" : "indent", false);
+  return true;
+}
+
+export function applyHtmlBlockList(ordered: boolean): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+  // execCommand 的列表命令是切换命令，如果已经是列表则会移除列表
+  document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList");
+  return true;
+}
+
+export function applyHtmlBlockLink(url: string | null): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+
+  if (url === null) {
+    // 移除链接
+    document.execCommand("unlink", false);
+  } else {
+    // 插入链接
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return false;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) {
+      // 如果没有选中文本，插入带有 URL 作为文本的链接
+      const link = document.createElement("a");
+      link.href = url;
+      link.textContent = url;
+      range.insertNode(link);
+
+      // 将光标移动到链接后面
+      const newRange = document.createRange();
+      newRange.setStartAfter(link);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    } else {
+      // 使用 execCommand 创建链接
+      document.execCommand("createLink", false, url);
+    }
+  }
+  return true;
+}
+
+export function isHtmlBlockLinkSelected(): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    // 检查保存的选区
+    if (savedHtmlBlockRange) {
+      let node: Node | null = savedHtmlBlockRange.commonAncestorContainer;
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+      }
+      while (node instanceof HTMLElement && content.contains(node)) {
+        if (node.tagName === "A") {
+          return true;
+        }
+        node = node.parentElement;
+      }
+    }
+    return false;
+  }
+
+  let node: Node | null = selection.anchorNode;
+  if (node?.nodeType === Node.TEXT_NODE) {
+    node = node.parentElement;
+  }
+
+  while (node instanceof HTMLElement && content.contains(node)) {
+    if (node.tagName === "A") {
+      return true;
+    }
+    node = node.parentElement;
+  }
+
+  return false;
+}
+
+export function getHtmlBlockLinkUrl(): string | null {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return null;
+  }
+
+  const selection = window.getSelection();
+  let node: Node | null = null;
+
+  if (selection && selection.rangeCount > 0) {
+    node = selection.anchorNode;
+  } else if (savedHtmlBlockRange) {
+    node = savedHtmlBlockRange.commonAncestorContainer;
+  }
+
+  if (!node) {
+    return null;
+  }
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    node = node.parentElement;
+  }
+
+  while (node instanceof HTMLElement && content.contains(node)) {
+    if (node.tagName === "A") {
+      return (node as HTMLAnchorElement).href;
+    }
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+export function applyHtmlBlockQuote(): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+  document.execCommand("formatBlock", false, "blockquote");
+  return true;
+}
+
+export function insertHtmlAtCursor(html: string): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    content.insertAdjacentHTML("beforeend", html);
+    return true;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const fragment = template.content;
+
+  const lastChild = fragment.lastChild;
+  range.insertNode(fragment);
+
+  if (lastChild) {
+    const newRange = document.createRange();
+    newRange.setStartAfter(lastChild);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    savedHtmlBlockRange = newRange.cloneRange();
+  }
+
+  return true;
+}
+
+export function insertHtmlBlockEmoji(emoji: string): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    if (savedHtmlBlockRange && content.contains(savedHtmlBlockRange.commonAncestorContainer)) {
+      selection?.removeAllRanges();
+      selection?.addRange(savedHtmlBlockRange);
+    } else {
+      content.insertAdjacentText("beforeend", emoji);
+      return true;
+    }
+  }
+
+  document.execCommand("insertText", false, emoji);
+  return true;
+}
+
+export function insertHtmlBlockImage(
+  src: string,
+  altText: string,
+  width?: string,
+  height?: string
+): boolean {
+  const w = width || "100%";
+  const h = height || "auto";
+  const html = `<img src="${src}" alt="${altText}" style="max-width:100%;width:${w};height:${h};" />`;
+  return insertHtmlAtCursor(html);
+}
+
+export function insertHtmlBlockYouTube(videoId: string): boolean {
+  const html = `<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="max-width:100%;"></iframe>`;
+  return insertHtmlAtCursor(html);
+}
+
+export function insertHtmlBlockHorizontalRule(): boolean {
+  return insertHtmlAtCursor("<hr />");
+}
+
+export function insertHtmlBlockTable(
+  rows: number,
+  cols: number,
+  includeHeaders?: { rows?: boolean; columns?: boolean }
+): boolean {
+  let html = '<table style="border-collapse:collapse;width:100%;">';
+
+  const cellStyle = 'style="border:1px solid #ddd;padding:8px;min-width:50px;"';
+  const headerStyle = 'style="border:1px solid #ddd;padding:8px;min-width:50px;font-weight:bold;background:#f5f5f5;"';
+
+  const startRow = includeHeaders?.rows ? 0 : 1;
+
+  if (includeHeaders?.rows) {
+    html += "<thead><tr>";
+    for (let c = 0; c < cols; c++) {
+      html += `<th ${headerStyle}>&nbsp;</th>`;
+    }
+    html += "</tr></thead>";
+  }
+
+  html += "<tbody>";
+  for (let r = startRow; r < rows; r++) {
+    html += "<tr>";
+    for (let c = 0; c < cols; c++) {
+      if (includeHeaders?.columns && c === 0) {
+        html += `<th ${headerStyle}>&nbsp;</th>`;
+      } else {
+        html += `<td ${cellStyle}>&nbsp;</td>`;
+      }
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+
+  return insertHtmlAtCursor(html);
+}
+
+export function clearHtmlBlockFormatting(): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+  content.focus();
+  document.execCommand("removeFormat", false);
+  return true;
+}
+
+function getInlineStyleFromSelection(property: string): string | undefined {
+  const selection = window.getSelection();
+  let node: Node | null = null;
+
+  if (selection && selection.rangeCount > 0) {
+    node = selection.getRangeAt(0).startContainer;
+  } else if (savedHtmlBlockRange) {
+    node = savedHtmlBlockRange.startContainer;
+  }
+
+  if (!node) {
+    return undefined;
+  }
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    node = node.parentElement;
+  }
+
+  while (node instanceof HTMLElement) {
+    const inlineValue = node.style.getPropertyValue(property);
+    if (inlineValue) {
+      return inlineValue;
+    }
+    const tag = node.tagName.toLowerCase();
+    if (
+      node.classList.contains(HTML_BLOCK_CONTENT_CLASS) ||
+      /^(p|div|h[1-6]|li|blockquote|pre)$/.test(tag)
+    ) {
+      break;
+    }
+    node = node.parentElement;
+  }
+
+  return undefined;
+}
+
+function normalizeLineHeightValue(
+  lineHeight: string,
+  fontSize: string
+): string {
+  const options = ["1", "1.2", "1.5", "1.75", "2", "2.5", "3", "4"];
+
+  if (options.includes(lineHeight)) {
+    return lineHeight;
+  }
+
+  if (!lineHeight || !lineHeight.endsWith("px")) {
+    return lineHeight;
+  }
+
+  const fontSizePx = Number.parseFloat(fontSize);
+  const lineHeightPx = Number.parseFloat(lineHeight);
+  if (!fontSizePx || !lineHeightPx) {
+    return lineHeight;
+  }
+
+  const ratio = lineHeightPx / fontSizePx;
+  const matched = options.find(
+    (option) => Math.abs(Number.parseFloat(option) - ratio) < 0.05
+  );
+  return matched ?? lineHeight;
+}
+
+export function readHtmlBlockToolbarState(
+  editor?: LexicalEditor
+): HtmlBlockToolbarState | null {
+  const content = editor
+    ? getHtmlBlockContentElement(editor)
+    : getActiveHtmlBlockContent();
+  if (!content) {
+    return null;
+  }
+
+  let element = getSelectionElement();
+  if (
+    !element &&
+    savedHtmlBlockRange &&
+    content.contains(savedHtmlBlockRange.commonAncestorContainer)
+  ) {
+    const node = savedHtmlBlockRange.commonAncestorContainer;
+    element =
+      node.nodeType === Node.ELEMENT_NODE
+        ? (node as HTMLElement)
+        : node.parentElement;
+  }
+
+  if (!element || !content.contains(element)) {
+    element = content;
+  }
+
+  const block = getClosestBlock(content, element);
+  const target = block && block !== content ? block : element;
+  const computed = window.getComputedStyle(target);
+  const blockTag = block && block !== content ? block.tagName.toLowerCase() : "p";
+
+  let blockType = "paragraph";
+  if (/^h[1-6]$/.test(blockTag)) {
+    blockType = blockTag;
+  } else if (blockTag === "blockquote" || target.closest("blockquote")) {
+    blockType = "quote";
+  } else if (target.closest("ul")) {
+    blockType = "bullet";
+  } else if (target.closest("ol")) {
+    blockType = "number";
+  }
+
+  const textAlign = computed.textAlign;
+  let elementFormat: ElementFormatType = "left";
+  if (textAlign === "center") {
+    elementFormat = "center";
+  } else if (textAlign === "right") {
+    elementFormat = "right";
+  } else if (textAlign === "justify") {
+    elementFormat = "justify";
+  }
+
+  const inlineLineHeight = getInlineStyleFromSelection("line-height");
+  const inlineLetterSpacing = getInlineStyleFromSelection("letter-spacing");
+
+  return {
+    blockType,
+    fontSize: computed.fontSize,
+    lineHeight: normalizeLineHeightValue(
+      inlineLineHeight || computed.lineHeight,
+      computed.fontSize
+    ),
+    letterSpacing: inlineLetterSpacing || computed.letterSpacing,
+    fontColor: computed.color,
+    bgColor: computed.backgroundColor,
+    isBold: document.queryCommandState("bold"),
+    isItalic: document.queryCommandState("italic"),
+    isUnderline: document.queryCommandState("underline"),
+    isStrikethrough: document.queryCommandState("strikeThrough"),
+    isSubscript: document.queryCommandState("subscript"),
+    isSuperscript: document.queryCommandState("superscript"),
+    elementFormat,
+    isLink: !!element.closest("a"),
+  };
+}
