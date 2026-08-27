@@ -125,27 +125,89 @@ function HtmlBlockComponent({
         return;
       }
 
-      // Ctrl+Z 撤销
-      if (event.key === "z" && !event.shiftKey) {
-        event.stopPropagation();
-        event.preventDefault();
-        document.execCommand("undo", false);
-        syncHtmlToNode(el.innerHTML);
-        rememberHtmlBlockSelection(el);
-        return;
-      }
+      switch (event.key.toLowerCase()) {
+        case "z":
+          event.stopPropagation();
+          event.preventDefault();
+          if (event.shiftKey) {
+            document.execCommand("redo", false);
+          } else {
+            document.execCommand("undo", false);
+          }
+          syncHtmlToNode(el.innerHTML);
+          rememberHtmlBlockSelection(el);
+          return;
 
-      // Ctrl+Shift+Z 或 Ctrl+Y 重做
-      if (
-        (event.key === "z" && event.shiftKey) ||
-        event.key === "y"
-      ) {
-        event.stopPropagation();
-        event.preventDefault();
-        document.execCommand("redo", false);
-        syncHtmlToNode(el.innerHTML);
-        rememberHtmlBlockSelection(el);
-        return;
+        case "y":
+          event.stopPropagation();
+          event.preventDefault();
+          document.execCommand("redo", false);
+          syncHtmlToNode(el.innerHTML);
+          rememberHtmlBlockSelection(el);
+          return;
+
+        case "a": {
+          event.stopPropagation();
+          event.preventDefault();
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            rememberHtmlBlockSelection(el);
+          }
+          return;
+        }
+
+        case "b":
+          event.stopPropagation();
+          event.preventDefault();
+          document.execCommand("bold", false);
+          syncHtmlToNode(el.innerHTML);
+          rememberHtmlBlockSelection(el);
+          return;
+
+        case "i":
+          event.stopPropagation();
+          event.preventDefault();
+          document.execCommand("italic", false);
+          syncHtmlToNode(el.innerHTML);
+          rememberHtmlBlockSelection(el);
+          return;
+
+        case "u":
+          event.stopPropagation();
+          event.preventDefault();
+          document.execCommand("underline", false);
+          syncHtmlToNode(el.innerHTML);
+          rememberHtmlBlockSelection(el);
+          return;
+
+        case "c":
+        case "x":
+          // 复制/剪切：阻止 Lexical 拦截，使用浏览器原生行为
+          event.stopPropagation();
+          if (event.key.toLowerCase() === "x") {
+            // 剪切后需要同步
+            setTimeout(() => {
+              syncHtmlToNode(el.innerHTML);
+              rememberHtmlBlockSelection(el);
+            }, 0);
+          }
+          return;
+
+        case "v":
+          // 粘贴：阻止 Lexical 拦截，使用浏览器原生行为，粘贴后同步
+          event.stopPropagation();
+          setTimeout(() => {
+            syncHtmlToNode(el.innerHTML);
+            rememberHtmlBlockSelection(el);
+          }, 0);
+          return;
+
+        default:
+          break;
       }
     };
 

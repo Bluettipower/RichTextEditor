@@ -72,9 +72,13 @@ import {
   applyHtmlBlockQuote,
   applyHtmlBlockStyleText,
   clearHtmlBlockFormatting,
+  getHtmlBlockLinkTarget,
+  getHtmlBlockLinkUrl,
   isHtmlBlockEditing,
+  isHtmlBlockLinkSelected,
   isPreserveHtmlBlockMode,
   readHtmlBlockToolbarState,
+  saveHtmlBlockSelection,
 } from "../../utils/htmlBlockFormatting";
 import {
   hasVisibleToolbarItems,
@@ -127,6 +131,8 @@ import DropDownLetterSpacing from "../../components/DropDownLetterSpacing";
 import { InsetYouTubeDialog } from "../YouTubePlugin";
 import { InsertTableDialog } from "../TablePlugin";
 import { $createCodeNode } from "@lexical/code";
+import { DialogActions } from "../../components/Dialog";
+import TextInput from "../../components/TextInput";
 
 function intersperse<T>(array: T[], separator: (index: number) => T): T[] {
   const result: T[] = [];
@@ -150,6 +156,118 @@ const blockTypeToBlockName = {
   number: "Numbered List",
   paragraph: "Normal",
   quote: "Quote",
+};
+
+interface HtmlBlockLinkDialogProps {
+  activeEditor: LexicalEditor;
+  initialUrl: string;
+  initialTarget: string;
+  isEdit: boolean;
+  onClose: () => void;
+}
+
+const HtmlBlockLinkDialog: React.FC<HtmlBlockLinkDialogProps> = ({
+  activeEditor,
+  initialUrl,
+  initialTarget,
+  isEdit,
+  onClose,
+}) => {
+  let parsedUrl = initialUrl;
+  let parsedType = "https://";
+  for (const prefix of ["https://", "http://", "mailto:", "tel:"]) {
+    if (initialUrl.startsWith(prefix)) {
+      parsedUrl = initialUrl.slice(prefix.length);
+      parsedType = prefix;
+      break;
+    }
+  }
+
+  const [url, setUrl] = useState(parsedUrl);
+  const [type, setType] = useState(parsedType);
+  const [target, setTarget] = useState(initialTarget);
+
+  const handleSubmit = () => {
+    const fullUrl = sanitizeUrl(type + url);
+    applyHtmlBlockFormatAndSync(activeEditor, () =>
+      applyHtmlBlockLink(fullUrl, target || undefined)
+    );
+    onClose();
+  };
+
+  const handleRemove = () => {
+    applyHtmlBlockFormatAndSync(activeEditor, () =>
+      applyHtmlBlockLink(null)
+    );
+    onClose();
+  };
+
+  return (
+    <div style={{ width: 500 }}>
+      <div className="lexicaltheme__link-editor-box">
+        <TextInput
+          label="链接地址"
+          value={url}
+          placeholder="请输入链接地址"
+          onChange={setUrl}
+          prefix={<div className="lexicaltheme__link-prefix">{type}</div>}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {[
+            { value: "https://", label: "https" },
+            { value: "http://", label: "http" },
+            { value: "mailto:", label: "邮件" },
+            { value: "tel:", label: "电话" },
+          ].map((t) => (
+            <div key={t.value} className="lexicaltheme__radio">
+              <input
+                type="radio"
+                id={`htmlblock-link-type-${t.value}`}
+                checked={type === t.value}
+                onChange={() => setType(t.value)}
+              />
+              <label
+                className="checkbox-label"
+                htmlFor={`htmlblock-link-type-${t.value}`}
+              >
+                {t.label}
+              </label>
+            </div>
+          ))}
+        </div>
+        <div className="lexicaltheme__checkboxInput">
+          <input
+            type="checkbox"
+            id="htmlblock-link-new-window"
+            checked={target === "_blank"}
+            onChange={(e) => setTarget(e.target.checked ? "_blank" : "")}
+          />
+          <label className="checkbox-label" htmlFor="htmlblock-link-new-window">
+            从新窗口打开
+          </label>
+        </div>
+      </div>
+      <DialogActions>
+        {isEdit && (
+          <button
+            type="button"
+            className="insertimage-dialog-button"
+            style={{ marginRight: "auto" }}
+            onClick={handleRemove}
+          >
+            移除链接
+          </button>
+        )}
+        <button
+          type="button"
+          className="insertimage-dialog-button"
+          onClick={handleSubmit}
+        >
+          确定
+        </button>
+      </DialogActions>
+    </div>
+  );
 };
 
 const Divider: React.FC = () => {
@@ -577,21 +695,24 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   );
 
   const insertLink = useCallback(() => {
-    // 在 HTML 块模式下使用 DOM API 处理链接
     if (
       importHtmlOptions?.preserveStructure &&
       isPreserveHtmlBlockMode(activeEditor)
     ) {
-      if (!isLink) {
-        applyHtmlBlockFormatAndSync(activeEditor, () =>
-          applyHtmlBlockLink(sanitizeUrl("https://"))
-        );
-      } else {
-        applyHtmlBlockFormatAndSync(activeEditor, () =>
-          applyHtmlBlockLink(null)
-        );
-      }
-      $updateToolbar();
+      saveHtmlBlockSelection();
+      const currentUrl = getHtmlBlockLinkUrl() ?? "";
+      const currentTarget = getHtmlBlockLinkTarget();
+      const editing = isHtmlBlockLinkSelected();
+
+      showModal("超链接", (onClose) => (
+        <HtmlBlockLinkDialog
+          activeEditor={activeEditor}
+          initialUrl={currentUrl}
+          initialTarget={currentTarget}
+          isEdit={editing}
+          onClose={onClose}
+        />
+      ));
       return;
     }
 
@@ -603,7 +724,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     } else {
       activeEditor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
     }
-  }, [activeEditor, isLink, importHtmlOptions?.preserveStructure, $updateToolbar]);
+  }, [activeEditor, isLink, importHtmlOptions?.preserveStructure, showModal]);
 
   const formatParagraph = () => {
     if (importHtmlOptions?.preserveStructure && isPreserveHtmlBlockMode(activeEditor)) {

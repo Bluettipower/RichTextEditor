@@ -887,31 +887,52 @@ button.toolbarbutton:disabled:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
 }
 
-.lexicaltheme__htmlview__textarea {
-  width: 100%;
-  min-height: 320px;
-  max-height: 60vh;
-  padding: 12px;
-  border: 1px solid #d1d5db;
+.lexicaltheme__htmlview__editor {
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid #374151;
   border-radius: 6px;
-  font-family: Consolas, Monaco, "Courier New", monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  resize: vertical;
-  box-sizing: border-box;
+  min-height: 0;
 }
 
-.lexicaltheme__htmlview__textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
+.lexicaltheme__htmlview__editor .cm-editor {
+  height: 100%;
+}
+
+.lexicaltheme__htmlview__editor .cm-scroller {
+  overflow: auto;
+  font-family: Consolas, Monaco, "Courier New", monospace;
 }
 
 .lexicaltheme__htmlview__error {
   margin: 0;
   color: #ef4444;
   font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* HTML 源码弹窗 - 可拖拽调整大小 */
+.lexicaltheme__diablogbox:has(.lexicaltheme__htmlview) {
+  width: 800px;
+  height: 600px;
+  min-width: 400px;
+  min-height: 300px;
+  max-width: 90vw;
+  max-height: 85vh;
+  resize: both;
+  overflow: hidden;
+}
+
+.lexicaltheme__diablogbox:has(.lexicaltheme__htmlview) > div:last-child {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
 .lexicaltheme__htmlBlock {

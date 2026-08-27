@@ -7,7 +7,13 @@ export const HTML_BLOCK_CONTENT_CLASS = "lexicaltheme__htmlBlock__content";
 
 let savedHtmlBlockRange: Range | null = null;
 
-function saveHtmlBlockSelection(content: HTMLElement): void {
+export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
+  if (!content) {
+    content = getActiveHtmlBlockContent();
+    if (!content) {
+      return;
+    }
+  }
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return;
@@ -539,18 +545,33 @@ export function applyHtmlBlockList(ordered: boolean): boolean {
   return true;
 }
 
-export function applyHtmlBlockLink(url: string | null): boolean {
-  const content = getActiveHtmlBlockContent();
+export function applyHtmlBlockLink(
+  url: string | null,
+  target?: string
+): boolean {
+  let content = getActiveHtmlBlockContent();
+  if (!content && savedHtmlBlockRange) {
+    const ancestor = savedHtmlBlockRange.commonAncestorContainer;
+    const el =
+      ancestor.nodeType === Node.ELEMENT_NODE
+        ? (ancestor as HTMLElement)
+        : ancestor.parentElement;
+    content =
+      (el?.closest(`.${HTML_BLOCK_CONTENT_CLASS}`) as HTMLElement | null) ??
+      null;
+  }
   if (!content) {
     return false;
   }
   content.focus();
 
+  if (!restoreHtmlBlockSelection(content)) {
+    return false;
+  }
+
   if (url === null) {
-    // 移除链接
     document.execCommand("unlink", false);
   } else {
-    // 插入链接
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
       return false;
@@ -558,21 +579,35 @@ export function applyHtmlBlockLink(url: string | null): boolean {
 
     const range = selection.getRangeAt(0);
     if (range.collapsed) {
-      // 如果没有选中文本，插入带有 URL 作为文本的链接
       const link = document.createElement("a");
       link.href = url;
       link.textContent = url;
+      if (target) {
+        link.target = target;
+      }
       range.insertNode(link);
 
-      // 将光标移动到链接后面
       const newRange = document.createRange();
       newRange.setStartAfter(link);
       newRange.collapse(true);
       selection.removeAllRanges();
       selection.addRange(newRange);
     } else {
-      // 使用 execCommand 创建链接
       document.execCommand("createLink", false, url);
+
+      // 为刚创建的链接设置 target 属性
+      if (target) {
+        const anchor = selection.anchorNode;
+        let linkEl: HTMLAnchorElement | null = null;
+        if (anchor?.nodeType === Node.TEXT_NODE) {
+          linkEl = anchor.parentElement?.closest("a") ?? null;
+        } else if (anchor instanceof HTMLElement) {
+          linkEl = anchor.closest("a");
+        }
+        if (linkEl) {
+          linkEl.target = target;
+        }
+      }
     }
   }
   return true;
@@ -648,6 +683,39 @@ export function getHtmlBlockLinkUrl(): string | null {
   }
 
   return null;
+}
+
+export function getHtmlBlockLinkTarget(): string {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return "";
+  }
+
+  const selection = window.getSelection();
+  let node: Node | null = null;
+
+  if (selection && selection.rangeCount > 0) {
+    node = selection.anchorNode;
+  } else if (savedHtmlBlockRange) {
+    node = savedHtmlBlockRange.commonAncestorContainer;
+  }
+
+  if (!node) {
+    return "";
+  }
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    node = node.parentElement;
+  }
+
+  while (node instanceof HTMLElement && content.contains(node)) {
+    if (node.tagName === "A") {
+      return (node as HTMLAnchorElement).target ?? "";
+    }
+    node = node.parentElement;
+  }
+
+  return "";
 }
 
 export function applyHtmlBlockQuote(): boolean {
