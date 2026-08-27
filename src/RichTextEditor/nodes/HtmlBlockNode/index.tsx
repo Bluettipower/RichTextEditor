@@ -43,6 +43,7 @@ function HtmlBlockComponent({
   const [editor] = useLexicalComposerContext();
   const contentRef = useRef<HTMLDivElement>(null);
   const lastSyncedHtml = useRef(html);
+  const isMounted = useRef(false);
   const [isSelected, setSelected, clearSelection] =
     useLexicalNodeSelection(nodeKey);
   const [editable, setEditable] = useState(() => editor.isEditable());
@@ -84,25 +85,28 @@ function HtmlBlockComponent({
       el.innerHTML = html;
       lastSyncedHtml.current = html;
 
-      // HTML 更新后自动聚焦并将光标放到内容开头
-      requestAnimationFrame(() => {
-        if (document.activeElement !== el) {
-          el.focus();
-          const selection = window.getSelection();
-          if (selection) {
-            const range = document.createRange();
-            if (el.firstChild) {
-              range.setStart(el.firstChild, 0);
-            } else {
-              range.setStart(el, 0);
+      // 只在非首次渲染时自动聚焦（用户通过 HTML 对话框保存后触发）
+      if (isMounted.current) {
+        requestAnimationFrame(() => {
+          if (document.activeElement !== el) {
+            el.focus();
+            const selection = window.getSelection();
+            if (selection) {
+              const range = document.createRange();
+              if (el.firstChild) {
+                range.setStart(el.firstChild, 0);
+              } else {
+                range.setStart(el, 0);
+              }
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
             }
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
           }
-        }
-      });
+        });
+      }
     }
+    isMounted.current = true;
   }, [html]);
 
   useEffect(() => {
