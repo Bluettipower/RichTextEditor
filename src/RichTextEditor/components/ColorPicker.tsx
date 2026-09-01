@@ -8,6 +8,7 @@ interface ColorPickerProps {
   color: string;
   className?: string;
   onChange?: (value: string, skipHistoryStack: boolean) => void;
+  showTransparent?: boolean;
 }
 
 const basicColors = [
@@ -239,7 +240,7 @@ const MoveWrapper: React.FC<MoveWrapperProps> = (props) => {
 };
 
 const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
-  const { color, onChange, className } = props;
+  const { color, onChange, className, showTransparent } = props;
   const [selfColor, setSelfColor] = useState(transformColor("hex", color));
   const [inputColor, setInputColor] = useState(color);
   const innerDivRef = useRef(null);
@@ -320,6 +321,20 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
           className="lexicaltheme__colorpicker__input"
         />
       </div>
+      {showTransparent && (
+        <button
+          type="button"
+          className="lexicaltheme__colorpicker__transparent"
+          onClick={() => {
+            if (onChange) {
+              onChange("transparent", false);
+            }
+          }}
+        >
+          <span className="lexicaltheme__colorpicker__transparent_icon" />
+          透明
+        </button>
+      )}
       <div className="lexicaltheme__colorpicker__box">
         {basicColors.map((basicColor) => (
           <button

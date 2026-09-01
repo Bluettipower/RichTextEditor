@@ -14,6 +14,7 @@ export type ToolbarItemKey =
   | "undo"
   | "redo"
   | "heading"
+  | "fontFamily"
   | "fontSize"
   | "lineHeight"
   | "letterSpacing"
@@ -51,7 +52,7 @@ export type ToolbarHiddenKey = ToolbarItemKey | ToolbarGroupKey;
 export const TOOLBAR_GROUP_ITEMS: Record<ToolbarGroupKey, ToolbarItemKey[]> = {
   undo: ["undo", "redo"],
   heading: ["heading"],
-  fontSize: ["fontSize", "lineHeight", "letterSpacing"],
+  fontSize: ["fontFamily", "fontSize", "lineHeight", "letterSpacing"],
   format: [
     "fontColor",
     "bgColor",

@@ -59,6 +59,7 @@ import {
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
 import { LexicalEditor } from "lexical";
 
+import DropDownFontFamily from "../../components/DropDownFontFamily";
 import DropDownFontSize from "../../components/DropDownFontSize";
 import DropDownHeading from "../../components/DropDownHeading";
 import HtmlViewDialog from "../../components/HtmlViewDialog";
@@ -353,6 +354,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
   const [canRedo, setCanRedo] = useState(false);
 
   const [fontSize, setFontSize] = useState<string>("16px");
+  const [fontFamily, setFontFamily] = useState<string>("");
   const [lineHeight, setLineHeight] = useState<string>();
   const [letterSpacing, setLetterSpacing] = useState<string>();
 
@@ -408,6 +410,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
           setBlockType("paragraph");
         }
         setFontSize(htmlState.fontSize);
+        setFontFamily(htmlState.fontFamily);
         setLineHeight(htmlState.lineHeight);
         setLetterSpacing(htmlState.letterSpacing);
         setFontColor(htmlState.fontColor);
@@ -516,6 +519,9 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
       );
       setLetterSpacing(
         $getSelectionStyleValueForProperty(selection, "letter-spacing", "0px")
+      );
+      setFontFamily(
+        $getSelectionStyleValueForProperty(selection, "font-family", "")
       );
     }
   }, [activeEditor, importHtmlOptions?.preserveStructure]);
@@ -785,6 +791,13 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
     if (isGroupRenderable("fontSize")) {
       children.push(
         <Fragment key="fontSize">
+          {isItemVisible("fontFamily") && (
+            <DropDownFontFamily
+              disabled={disabled}
+              selectionFontFamily={fontFamily}
+              editor={activeEditor}
+            />
+          )}
           {isItemVisible("fontSize") && (
             <DropDownFontSize
               disabled={disabled}
@@ -827,6 +840,7 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
               disabled={disabled}
               icon={<IconBackgound />}
               onChange={onBgColorSelect}
+              showTransparent
             />
           )}
           {isItemVisible("bold") && (

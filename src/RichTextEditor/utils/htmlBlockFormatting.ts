@@ -94,6 +94,7 @@ function withHtmlBlockContent(
 export interface HtmlBlockToolbarState {
   blockType: string;
   fontSize: string;
+  fontFamily: string;
   lineHeight?: string;
   letterSpacing?: string;
   fontColor: string;
@@ -233,8 +234,8 @@ function stripStyleFromNodeTree(root: ParentNode, property: string): void {
     }
     element.style.removeProperty(property);
     if (
-      element.tagName === "SPAN" &&
-      element.getAttribute("style")?.trim() === ""
+      (element.tagName === "SPAN" || element.tagName === "FONT") &&
+      !element.getAttribute("style")?.trim()
     ) {
       unwrapElement(element);
     }
@@ -355,6 +356,35 @@ function applyStyleToSelection(
   selectElementContents(wrapper);
 }
 
+function removeInlineStyle(property: string): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+  const range = selection.getRangeAt(0);
+
+  const content =
+    getActiveHtmlBlockContent() ??
+    range.commonAncestorContainer.parentElement?.closest(
+      `.${HTML_BLOCK_CONTENT_CLASS}`
+    );
+  if (!content) {
+    return false;
+  }
+
+  if (range.collapsed) {
+    const block = getClosestBlock(content as HTMLElement, range.startContainer);
+    if (block) {
+      block.style.removeProperty(property);
+    }
+    return true;
+  }
+  const fragment = range.extractContents();
+  stripStyleFromNodeTree(fragment, property);
+  range.insertNode(fragment);
+  return true;
+}
+
 function applyInlineStyles(styles: Record<string, string>): boolean {
   const content = getActiveHtmlBlockContent();
   if (!content) {
@@ -472,12 +502,16 @@ export function applyHtmlBlockStyleText(
   }
 
   if ("background-color" in styles) {
+    const bgValue = styles["background-color"];
+    if (bgValue === "transparent") {
+      return applyInlineStyles({ "background-color": "transparent" });
+    }
     const content = getActiveHtmlBlockContent();
     if (!content) {
       return false;
     }
     content.focus();
-    document.execCommand("hiliteColor", false, styles["background-color"]);
+    document.execCommand("hiliteColor", false, bgValue);
     return true;
   }
 
@@ -916,6 +950,13 @@ function normalizeLineHeightValue(
   return matched ?? lineHeight;
 }
 
+function normalizeBgColor(value: string): string {
+  if (!value || value === "rgba(0, 0, 0, 0)" || value === "transparent") {
+    return "#fff";
+  }
+  return value;
+}
+
 export function readHtmlBlockToolbarState(
   editor?: LexicalEditor
 ): HtmlBlockToolbarState | null {
@@ -972,16 +1013,19 @@ export function readHtmlBlockToolbarState(
   const inlineLineHeight = getInlineStyleFromSelection("line-height");
   const inlineLetterSpacing = getInlineStyleFromSelection("letter-spacing");
 
+  const inlineFontFamily = getInlineStyleFromSelection("font-family");
+
   return {
     blockType,
     fontSize: computed.fontSize,
+    fontFamily: inlineFontFamily || computed.fontFamily,
     lineHeight: normalizeLineHeightValue(
       inlineLineHeight || computed.lineHeight,
       computed.fontSize
     ),
     letterSpacing: inlineLetterSpacing || computed.letterSpacing,
     fontColor: computed.color,
-    bgColor: computed.backgroundColor,
+    bgColor: normalizeBgColor(computed.backgroundColor),
     isBold: document.queryCommandState("bold"),
     isItalic: document.queryCommandState("italic"),
     isUnderline: document.queryCommandState("underline"),

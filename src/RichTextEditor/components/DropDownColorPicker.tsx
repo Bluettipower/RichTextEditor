@@ -8,10 +8,11 @@ interface DropdownColorPickerProps {
   disabled?: boolean;
   icon?: React.ReactNode;
   onChange?: (color: string, skipHistoryStack: boolean) => void;
+  showTransparent?: boolean;
 }
 
 const DropdownColorPicker: React.FC<DropdownColorPickerProps> = (props) => {
-  const { color, disabled, icon, onChange, ...rest } = props;
+  const { color, disabled, icon, onChange, showTransparent, ...rest } = props;
   return (
     <DropDown
       {...rest}
@@ -20,7 +21,11 @@ const DropdownColorPicker: React.FC<DropdownColorPickerProps> = (props) => {
       disabled={disabled}
       stopCloseOnClickSelf
     >
-      <ColorPicker color={color} onChange={onChange} />
+      <ColorPicker
+        color={color}
+        onChange={onChange}
+        showTransparent={showTransparent}
+      />
     </DropDown>
   );
 };

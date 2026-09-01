@@ -1265,6 +1265,50 @@ button.toolbarbutton:disabled:hover {
   height: 20px;
 }
 
+.lexicaltheme__colorpicker__transparent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: background 0.15s;
+}
+
+.lexicaltheme__colorpicker__transparent:hover {
+  background: #f5f5f5;
+}
+
+.lexicaltheme__colorpicker__transparent_icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 2px;
+  background: linear-gradient(
+      45deg,
+      #ccc 25%,
+      transparent 25%,
+      transparent 75%,
+      #ccc 75%
+    ),
+    linear-gradient(
+      45deg,
+      #ccc 25%,
+      transparent 25%,
+      transparent 75%,
+      #ccc 75%
+    );
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}
+
 .lexicaltheme__dropdowns {
   padding: 16px 0px;
   z-index: 100;
