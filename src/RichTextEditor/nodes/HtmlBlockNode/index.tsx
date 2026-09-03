@@ -42,7 +42,7 @@ function HtmlBlockComponent({
 }) {
   const [editor] = useLexicalComposerContext();
   const contentRef = useRef<HTMLDivElement>(null);
-  const lastSyncedHtml = useRef(html);
+  const lastSyncedHtml = useRef("");
   const isMounted = useRef(false);
   const [isSelected, setSelected, clearSelection] =
     useLexicalNodeSelection(nodeKey);
@@ -78,33 +78,45 @@ function HtmlBlockComponent({
 
   useLayoutEffect(() => {
     const el = contentRef.current;
-    if (!el || document.activeElement === el) {
+    if (!el) {
       return;
     }
-    if (el.innerHTML !== html) {
-      el.innerHTML = html;
-      lastSyncedHtml.current = html;
 
-      // 只在非首次渲染时自动聚焦（用户通过 HTML 对话框保存后触发）
-      if (isMounted.current) {
-        requestAnimationFrame(() => {
-          if (document.activeElement !== el) {
-            el.focus();
-            const selection = window.getSelection();
-            if (selection) {
-              const range = document.createRange();
-              if (el.firstChild) {
-                range.setStart(el.firstChild, 0);
-              } else {
-                range.setStart(el, 0);
-              }
-              range.collapse(true);
-              selection.removeAllRanges();
-              selection.addRange(range);
+    if (el.innerHTML === html) {
+      lastSyncedHtml.current = html;
+      isMounted.current = true;
+      return;
+    }
+
+    const isEditing =
+      document.activeElement === el || el.contains(document.activeElement);
+    if (isMounted.current && isEditing && lastSyncedHtml.current === html) {
+      isMounted.current = true;
+      return;
+    }
+
+    el.innerHTML = html;
+    lastSyncedHtml.current = html;
+
+    // 只在非首次渲染时自动聚焦（用户通过 HTML 对话框保存后触发）
+    if (isMounted.current && !isEditing) {
+      requestAnimationFrame(() => {
+        if (document.activeElement !== el) {
+          el.focus();
+          const selection = window.getSelection();
+          if (selection) {
+            const range = document.createRange();
+            if (el.firstChild) {
+              range.setStart(el.firstChild, 0);
+            } else {
+              range.setStart(el, 0);
             }
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
           }
-        });
-      }
+        }
+      });
     }
     isMounted.current = true;
   }, [html]);

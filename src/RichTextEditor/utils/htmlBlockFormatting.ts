@@ -6,6 +6,76 @@ import { $isHtmlBlockNode } from "../nodes/HtmlBlockNode";
 export const HTML_BLOCK_CONTENT_CLASS = "lexicaltheme__htmlBlock__content";
 
 let savedHtmlBlockRange: Range | null = null;
+let savedHtmlBlockBookmark: SelectionBookmark | null = null;
+
+interface SelectionBookmark {
+  startPath: number[];
+  startOffset: number;
+  endPath: number[];
+  endOffset: number;
+}
+
+function getNodePath(root: Node, node: Node): number[] | null {
+  const path: number[] = [];
+  let current: Node | null = node;
+  while (current && current !== root) {
+    const parentNode: Node | null = current.parentNode;
+    if (!parentNode) {
+      return null;
+    }
+    path.unshift(Array.prototype.indexOf.call(parentNode.childNodes, current));
+    current = parentNode;
+  }
+  return current === root ? path : null;
+}
+
+function getNodeFromPath(root: Node, path: number[]): Node | null {
+  let current: Node = root;
+  for (const index of path) {
+    const next = current.childNodes[index];
+    if (!next) {
+      return null;
+    }
+    current = next;
+  }
+  return current;
+}
+
+function createSelectionBookmark(
+  content: HTMLElement,
+  range: Range
+): SelectionBookmark | null {
+  const startPath = getNodePath(content, range.startContainer);
+  const endPath = getNodePath(content, range.endContainer);
+  if (!startPath || !endPath) {
+    return null;
+  }
+  return {
+    startPath,
+    startOffset: range.startOffset,
+    endPath,
+    endOffset: range.endOffset,
+  };
+}
+
+function rangeFromBookmark(
+  content: HTMLElement,
+  bookmark: SelectionBookmark
+): Range | null {
+  const startNode = getNodeFromPath(content, bookmark.startPath);
+  const endNode = getNodeFromPath(content, bookmark.endPath);
+  if (!startNode || !endNode) {
+    return null;
+  }
+  try {
+    const range = document.createRange();
+    range.setStart(startNode, bookmark.startOffset);
+    range.setEnd(endNode, bookmark.endOffset);
+    return range;
+  } catch {
+    return null;
+  }
+}
 
 export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
   if (!content) {
@@ -21,20 +91,33 @@ export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
   const range = selection.getRangeAt(0);
   if (content.contains(range.commonAncestorContainer)) {
     savedHtmlBlockRange = range.cloneRange();
+    savedHtmlBlockBookmark = createSelectionBookmark(content, range);
   }
 }
 
 function restoreHtmlBlockSelection(content: HTMLElement): boolean {
-  if (!savedHtmlBlockRange || !content.contains(savedHtmlBlockRange.commonAncestorContainer)) {
+  let range: Range | null = null;
+  if (
+    savedHtmlBlockRange &&
+    content.contains(savedHtmlBlockRange.commonAncestorContainer)
+  ) {
+    range = savedHtmlBlockRange;
+  } else if (savedHtmlBlockBookmark) {
+    range = rangeFromBookmark(content, savedHtmlBlockBookmark);
+  }
+
+  if (!range) {
     return false;
   }
+
   content.focus();
   const selection = window.getSelection();
   if (!selection) {
     return false;
   }
   selection.removeAllRanges();
-  selection.addRange(savedHtmlBlockRange);
+  selection.addRange(range);
+  savedHtmlBlockRange = range.cloneRange();
   return true;
 }
 
@@ -304,20 +387,136 @@ function findStyleWrapperInRange(
   }
 
   while (node instanceof HTMLElement) {
+    if (node.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
+      break;
+    }
     if (
-      node.tagName === "SPAN" &&
       node.style.getPropertyValue(property) &&
       isRangeFullyContainedIn(range, node)
     ) {
       return node;
     }
-    if (node.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
-      break;
-    }
     node = node.parentElement;
   }
 
   return null;
+}
+
+function trimRangeWhitespace(range: Range): Range {
+  const trimmed = range.cloneRange();
+
+  while (!trimmed.collapsed) {
+    const { startContainer, startOffset } = trimmed;
+    if (startContainer.nodeType !== Node.TEXT_NODE) {
+      break;
+    }
+    const text = startContainer.textContent ?? "";
+    if (startOffset < text.length && /\s/.test(text.charAt(startOffset))) {
+      trimmed.setStart(startContainer, startOffset + 1);
+      continue;
+    }
+    break;
+  }
+
+  while (!trimmed.collapsed) {
+    const { endContainer, endOffset } = trimmed;
+    if (endContainer.nodeType !== Node.TEXT_NODE || endOffset === 0) {
+      break;
+    }
+    const text = endContainer.textContent ?? "";
+    if (/\s/.test(text.charAt(endOffset - 1))) {
+      trimmed.setEnd(endContainer, endOffset - 1);
+      continue;
+    }
+    break;
+  }
+
+  return trimmed;
+}
+
+function removeEmptyTextSiblings(node: Node): void {
+  const siblings = [node.previousSibling, node.nextSibling];
+  for (const sibling of siblings) {
+    if (
+      sibling &&
+      sibling.nodeType === Node.TEXT_NODE &&
+      !(sibling.textContent ?? "").length
+    ) {
+      sibling.parentNode?.removeChild(sibling);
+    }
+  }
+}
+
+const BLOCK_TAG_RE = /^(p|div|h[1-6]|li|blockquote|pre|ul|ol|table|section|article)$/i;
+
+function isBlockElement(element: Element): boolean {
+  return BLOCK_TAG_RE.test(element.tagName);
+}
+
+function hasBlockChild(element: HTMLElement): boolean {
+  return Array.from(element.children).some((child) => isBlockElement(child));
+}
+
+function ensureWrapperPaintsBackground(element: HTMLElement): void {
+  if (hasBlockChild(element)) {
+    element.style.display = "block";
+  }
+}
+
+function getBlocksIntersectingRange(
+  content: HTMLElement,
+  range: Range
+): HTMLElement[] {
+  const blocks: HTMLElement[] = [];
+  const candidates = Array.from(
+    content.querySelectorAll("p,div,h1,h2,h3,h4,h5,h6,li,blockquote,pre")
+  );
+  for (const candidate of candidates) {
+    if (!(candidate instanceof HTMLElement) || candidate === content) {
+      continue;
+    }
+    if (candidate.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
+      continue;
+    }
+    if (!range.intersectsNode(candidate)) {
+      continue;
+    }
+    if (blocks.some((block) => block.contains(candidate))) {
+      continue;
+    }
+    blocks.push(candidate);
+  }
+  return blocks;
+}
+
+function applyStyleToBlocks(
+  content: HTMLElement,
+  blocks: HTMLElement[],
+  property: string,
+  value: string
+): void {
+  for (const block of blocks) {
+    block.style.setProperty(property, value);
+    Array.from(block.children).forEach((child) => {
+      stripStyleFromNodeTree(child, property);
+    });
+    clearBlockStyleOnAncestors(content, block, property);
+  }
+  const first = blocks[0];
+  const last = blocks[blocks.length - 1];
+  if (!first || !last) {
+    return;
+  }
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+  const newRange = document.createRange();
+  newRange.setStartBefore(first);
+  newRange.setEndAfter(last);
+  selection.removeAllRanges();
+  selection.addRange(newRange);
+  saveHtmlBlockSelection(content);
 }
 
 function applyStyleToSelection(
@@ -338,21 +537,59 @@ function applyStyleToSelection(
   const existingWrapper = findStyleWrapperInRange(range, property);
   if (existingWrapper) {
     existingWrapper.style.setProperty(property, value);
+    if (property === "background-color") {
+      ensureWrapperPaintsBackground(existingWrapper);
+    }
+    Array.from(existingWrapper.children).forEach((child) => {
+      stripStyleFromNodeTree(child, property);
+    });
     clearBlockStyleOnAncestors(content, existingWrapper, property);
     selectElementContents(existingWrapper);
     return;
   }
 
-  const startNode = range.startContainer;
+  const workingRange = trimRangeWhitespace(range);
+  if (workingRange.collapsed) {
+    return;
+  }
+
+  if (property === "background-color") {
+    const blocks = getBlocksIntersectingRange(content, workingRange);
+    if (blocks.length > 1) {
+      applyStyleToBlocks(content, blocks, property, value);
+      return;
+    }
+    if (blocks.length === 1) {
+      const blockRange = document.createRange();
+      blockRange.selectNodeContents(blocks[0]);
+      const coversWholeBlock =
+        workingRange.compareBoundaryPoints(Range.START_TO_START, blockRange) <=
+          0 &&
+        workingRange.compareBoundaryPoints(Range.END_TO_END, blockRange) >= 0;
+      if (coversWholeBlock) {
+        applyStyleToBlocks(content, blocks, property, value);
+        return;
+      }
+    }
+  }
+
+  const startNode = workingRange.startContainer;
   clearBlockStyleOnAncestors(content, startNode, property);
 
-  const fragment = range.extractContents();
+  const fragment = workingRange.extractContents();
   stripStyleFromNodeTree(fragment, property);
 
-  const wrapper = document.createElement("span");
+  const fragmentHasBlock =
+    fragment instanceof DocumentFragment &&
+    Array.from(fragment.children).some((child) => isBlockElement(child));
+  const wrapper = document.createElement(fragmentHasBlock ? "div" : "span");
+  if (fragmentHasBlock) {
+    wrapper.style.display = "block";
+  }
   wrapper.style.setProperty(property, value);
   wrapper.appendChild(fragment);
-  range.insertNode(wrapper);
+  workingRange.insertNode(wrapper);
+  removeEmptyTextSiblings(wrapper);
   selectElementContents(wrapper);
 }
 
@@ -386,7 +623,7 @@ function removeInlineStyle(property: string): boolean {
 }
 
 function applyInlineStyles(styles: Record<string, string>): boolean {
-  const content = getActiveHtmlBlockContent();
+  const content = resolveHtmlBlockContent();
   if (!content) {
     return false;
   }
@@ -488,6 +725,68 @@ export function applyHtmlBlockTextFormat(format: TextFormatType): boolean {
   return true;
 }
 
+function resolveHtmlBlockContent(): HTMLElement | null {
+  const active = getActiveHtmlBlockContent();
+  if (active) {
+    return active;
+  }
+
+  if (
+    savedHtmlBlockRange &&
+    savedHtmlBlockRange.commonAncestorContainer instanceof Node
+  ) {
+    const fromRange =
+      savedHtmlBlockRange.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? (savedHtmlBlockRange.commonAncestorContainer as HTMLElement)
+        : savedHtmlBlockRange.commonAncestorContainer.parentElement;
+    const content = fromRange?.closest(
+      `.${HTML_BLOCK_CONTENT_CLASS}`
+    ) as HTMLElement | null;
+    if (content) {
+      restoreHtmlBlockSelection(content);
+      return content;
+    }
+  }
+
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const node = selection.getRangeAt(0).commonAncestorContainer;
+    const element =
+      node.nodeType === Node.ELEMENT_NODE
+        ? (node as HTMLElement)
+        : node.parentElement;
+    return (
+      (element?.closest(
+        `.${HTML_BLOCK_CONTENT_CLASS}`
+      ) as HTMLElement | null) ?? null
+    );
+  }
+
+  return null;
+}
+
+function applyHtmlBlockBackgroundColor(value: string): boolean {
+  const content = resolveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  restoreHtmlBlockSelection(content);
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  applyStyleToSelection(
+    content,
+    selection.getRangeAt(0),
+    "background-color",
+    value,
+    false
+  );
+  return true;
+}
+
 export function applyHtmlBlockStyleText(
   styles: Record<string, string>
 ): boolean {
@@ -502,17 +801,7 @@ export function applyHtmlBlockStyleText(
   }
 
   if ("background-color" in styles) {
-    const bgValue = styles["background-color"];
-    if (bgValue === "transparent") {
-      return applyInlineStyles({ "background-color": "transparent" });
-    }
-    const content = getActiveHtmlBlockContent();
-    if (!content) {
-      return false;
-    }
-    content.focus();
-    document.execCommand("hiliteColor", false, bgValue);
-    return true;
+    return applyHtmlBlockBackgroundColor(styles["background-color"]);
   }
 
   return applyInlineStyles(styles);
@@ -951,8 +1240,14 @@ function normalizeLineHeightValue(
 }
 
 function normalizeBgColor(value: string): string {
-  if (!value || value === "rgba(0, 0, 0, 0)" || value === "transparent") {
-    return "#fff";
+  const normalized = value.replace(/\s+/g, "").toLowerCase();
+  if (
+    !value ||
+    normalized === "transparent" ||
+    normalized === "rgba(0,0,0,0)" ||
+    normalized === "rgba(0,0,0,0.0)"
+  ) {
+    return "transparent";
   }
   return value;
 }
@@ -1025,7 +1320,9 @@ export function readHtmlBlockToolbarState(
     ),
     letterSpacing: inlineLetterSpacing || computed.letterSpacing,
     fontColor: computed.color,
-    bgColor: normalizeBgColor(computed.backgroundColor),
+    bgColor: normalizeBgColor(
+      getInlineStyleFromSelection("background-color") || computed.backgroundColor
+    ),
     isBold: document.queryCommandState("bold"),
     isItalic: document.queryCommandState("italic"),
     isUnderline: document.queryCommandState("underline"),

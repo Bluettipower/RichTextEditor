@@ -964,6 +964,24 @@ button.toolbarbutton:disabled:hover {
   caret-color: #000;
 }
 
+/* span 包裹块级元素时，背景色不会画在子段落上，需按块级盒子渲染 */
+.lexicaltheme__htmlBlock__content span:has(> p),
+.lexicaltheme__htmlBlock__content span:has(> div),
+.lexicaltheme__htmlBlock__content span:has(> h1),
+.lexicaltheme__htmlBlock__content span:has(> h2),
+.lexicaltheme__htmlBlock__content span:has(> h3),
+.lexicaltheme__htmlBlock__content span:has(> h4),
+.lexicaltheme__htmlBlock__content span:has(> h5),
+.lexicaltheme__htmlBlock__content span:has(> h6),
+.lexicaltheme__htmlBlock__content span:has(> ul),
+.lexicaltheme__htmlBlock__content span:has(> ol),
+.lexicaltheme__htmlBlock__content span:has(> li),
+.lexicaltheme__htmlBlock__content span:has(> blockquote),
+.lexicaltheme__htmlBlock__content span:has(> table),
+.lexicaltheme__htmlBlock__content span:has(> pre) {
+  display: block;
+}
+
 /* HTML 块内恢复原生 HTML 元素的默认样式 */
 .lexicaltheme__htmlBlock__content ul,
 .lexicaltheme__htmlBlock__content ol {

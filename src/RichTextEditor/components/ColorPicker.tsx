@@ -239,10 +239,27 @@ const MoveWrapper: React.FC<MoveWrapperProps> = (props) => {
   );
 };
 
+function isTransparentColor(value?: string): boolean {
+  if (!value) {
+    return false;
+  }
+  const normalized = value.replace(/\s+/g, "").toLowerCase();
+  return (
+    normalized === "transparent" ||
+    normalized === "rgba(0,0,0,0)" ||
+    normalized === "rgba(0,0,0,0.0)"
+  );
+}
+
 const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
   const { color, onChange, className, showTransparent } = props;
-  const [selfColor, setSelfColor] = useState(transformColor("hex", color));
-  const [inputColor, setInputColor] = useState(color);
+  const [selfColor, setSelfColor] = useState(() =>
+    isTransparentColor(color) ? transformColor("hex", "#ffffff") : transformColor("hex", color)
+  );
+  const [inputColor, setInputColor] = useState(
+    isTransparentColor(color) ? "transparent" : color
+  );
+  const skipHexOnChangeRef = useRef(false);
   const innerDivRef = useRef(null);
 
   const saturationPosition = useMemo(
@@ -290,6 +307,10 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
   useEffect(() => {
     // Check if the dropdown is actually active
     if (innerDivRef.current !== null && onChange) {
+      if (skipHexOnChangeRef.current) {
+        skipHexOnChangeRef.current = false;
+        return;
+      }
       onChange(selfColor.hex, skipAddingToHistoryStack);
       setInputColor(selfColor.hex);
     }
@@ -297,6 +318,11 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
 
   useEffect(() => {
     if (color === undefined) {
+      return;
+    }
+    if (isTransparentColor(color)) {
+      skipHexOnChangeRef.current = true;
+      setInputColor("transparent");
       return;
     }
     const newColor = transformColor("hex", color);
@@ -326,6 +352,8 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
           type="button"
           className="lexicaltheme__colorpicker__transparent"
           onClick={() => {
+            skipHexOnChangeRef.current = true;
+            setInputColor("transparent");
             if (onChange) {
               onChange("transparent", false);
             }

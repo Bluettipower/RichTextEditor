@@ -171,27 +171,44 @@ const DropDown: React.FC<DropDownProps> = (props) => {
   }, [dropDownRef, buttonRef, showDropDown]);
 
   useEffect(() => {
-    const button = buttonRef.current;
-
-    if (button !== null && showDropDown) {
-      const handle = (event: MouseEvent) => {
-        const target = event.target;
-        if (stopCloseOnClickSelf) {
-          if (
-            dropDownRef.current &&
-            dropDownRef.current.contains(target as Node)
-          )
-            return;
-        }
-        if (!button.contains(target as Node)) setShowDropDown(false);
-      };
-      document.addEventListener("click", handle);
-
-      return () => {
-        document.removeEventListener("click", handle);
-      };
+    if (!showDropDown) {
+      return;
     }
-  }, [dropDownRef, buttonRef, showDropDown, stopCloseOnClickSelf]);
+
+    const isInButton = (target: EventTarget | null) =>
+      !!buttonRef.current?.contains(target as Node);
+    const isInDropDown = (target: EventTarget | null) =>
+      !!dropDownRef.current?.contains(target as Node);
+
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      const target = event.target;
+      if (isInButton(target) || isInDropDown(target)) {
+        return;
+      }
+      setShowDropDown(false);
+    };
+
+    const handleClick = (event: MouseEvent) => {
+      if (stopCloseOnClickSelf) {
+        return;
+      }
+      if (isInDropDown(event.target)) {
+        setShowDropDown(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDownCapture, true);
+    document.addEventListener("click", handleClick);
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDownCapture,
+        true
+      );
+      document.removeEventListener("click", handleClick);
+    };
+  }, [showDropDown, stopCloseOnClickSelf]);
 
   useEffect(() => {
     const handleButtonPositionUpdate = () => {
