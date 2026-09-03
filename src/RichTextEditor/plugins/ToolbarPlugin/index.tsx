@@ -81,6 +81,7 @@ import {
   readHtmlBlockToolbarState,
   saveHtmlBlockSelection,
 } from "../../utils/htmlBlockFormatting";
+import { resolveToolbarFontFamily } from "../../utils/fontFamily";
 import {
   hasVisibleToolbarItems,
   isToolbarItemHidden,
@@ -521,7 +522,9 @@ const ToolbarPlugin: React.FC<ToolbarPluginProps> = (props) => {
         $getSelectionStyleValueForProperty(selection, "letter-spacing", "0px")
       );
       setFontFamily(
-        $getSelectionStyleValueForProperty(selection, "font-family", "")
+        resolveToolbarFontFamily(
+          $getSelectionStyleValueForProperty(selection, "font-family", "")
+        )
       );
     }
   }, [activeEditor, importHtmlOptions?.preserveStructure]);

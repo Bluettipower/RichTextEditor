@@ -24,7 +24,16 @@ import {
 } from "lexical";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { rememberHtmlBlockSelection } from "../../utils/htmlBlockFormatting";
+import {
+  insertHtmlBlockEnter,
+  rememberHtmlBlockSelection,
+} from "../../utils/htmlBlockFormatting";
+import {
+  getHtmlBlockHistoryCurrent,
+  initHtmlBlockHistory,
+  isApplyingHtmlBlockHistory,
+  recordHtmlBlockHistory,
+} from "../../utils/htmlBlockHistory";
 
 export type SerializedHtmlBlockNode = Spread<
   {
@@ -66,9 +75,13 @@ function HtmlBlockComponent({
 
   const handleInput = useCallback(() => {
     const el = contentRef.current;
-    if (!el) {
+    if (!el || isApplyingHtmlBlockHistory()) {
       return;
     }
+    recordHtmlBlockHistory(
+      getHtmlBlockHistoryCurrent() || lastSyncedHtml.current,
+      el.innerHTML
+    );
     syncHtmlToNode(el.innerHTML);
   }, [syncHtmlToNode]);
 
@@ -84,6 +97,9 @@ function HtmlBlockComponent({
 
     if (el.innerHTML === html) {
       lastSyncedHtml.current = html;
+      if (!isMounted.current) {
+        initHtmlBlockHistory(html);
+      }
       isMounted.current = true;
       return;
     }
@@ -93,6 +109,12 @@ function HtmlBlockComponent({
     if (isMounted.current && isEditing && lastSyncedHtml.current === html) {
       isMounted.current = true;
       return;
+    }
+
+    if (isMounted.current && !isApplyingHtmlBlockHistory()) {
+      recordHtmlBlockHistory(el.innerHTML, html);
+    } else if (!isMounted.current) {
+      initHtmlBlockHistory(html);
     }
 
     el.innerHTML = html;
@@ -131,7 +153,31 @@ function HtmlBlockComponent({
       event.stopPropagation();
     };
 
+    const handleEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        (target !== el && !el.contains(target))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (insertHtmlBlockEnter(event.shiftKey)) {
+        syncHtmlToNode(el.innerHTML);
+        rememberHtmlBlockSelection(el);
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        handleEnter(event);
+        return;
+      }
+
       const isMod = event.ctrlKey || event.metaKey;
       if (!isMod) {
         return;
@@ -139,23 +185,7 @@ function HtmlBlockComponent({
 
       switch (event.key.toLowerCase()) {
         case "z":
-          event.stopPropagation();
-          event.preventDefault();
-          if (event.shiftKey) {
-            document.execCommand("redo", false);
-          } else {
-            document.execCommand("undo", false);
-          }
-          syncHtmlToNode(el.innerHTML);
-          rememberHtmlBlockSelection(el);
-          return;
-
         case "y":
-          event.stopPropagation();
-          event.preventDefault();
-          document.execCommand("redo", false);
-          syncHtmlToNode(el.innerHTML);
-          rememberHtmlBlockSelection(el);
           return;
 
         case "a": {
@@ -279,6 +309,7 @@ function HtmlBlockComponent({
     captureEvents.forEach((name) => {
       el.addEventListener(name, stopLexical, true);
     });
+    document.addEventListener("keydown", handleEnter, true);
     el.addEventListener("keydown", handleKeyDown, true);
 
     const handleMouseUp = (event: Event) => {
@@ -321,6 +352,7 @@ function HtmlBlockComponent({
       captureEvents.forEach((name) => {
         el.removeEventListener(name, stopLexical, true);
       });
+      document.removeEventListener("keydown", handleEnter, true);
       el.removeEventListener("keydown", handleKeyDown, true);
       el.removeEventListener("mouseup", handleMouseUp, true);
       el.removeEventListener("keyup", saveSelection);

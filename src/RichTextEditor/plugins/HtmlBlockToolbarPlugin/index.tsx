@@ -6,6 +6,8 @@ import {
   FORMAT_TEXT_COMMAND,
   INDENT_CONTENT_COMMAND,
   OUTDENT_CONTENT_COMMAND,
+  REDO_COMMAND,
+  UNDO_COMMAND,
 } from "lexical";
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
 import { useEffect } from "react";
@@ -20,12 +22,79 @@ import {
   insertHtmlBlockTable,
   insertHtmlBlockYouTube,
   isPreserveHtmlBlockMode,
+  redoHtmlBlock,
+  undoHtmlBlock,
 } from "../../utils/htmlBlockFormatting";
 import { INSERT_IMAGE_COMMAND } from "../ImagesPlugin";
 import { INSERT_YOUTUBE_COMMAND } from "../YouTubePlugin";
 
 const HtmlBlockToolbarPlugin: React.FC = () => {
   const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerCommand(
+      UNDO_COMMAND,
+      () => {
+        if (!isPreserveHtmlBlockMode(editor)) {
+          return false;
+        }
+        return undoHtmlBlock(editor);
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [editor]);
+
+  useEffect(() => {
+    return editor.registerCommand(
+      REDO_COMMAND,
+      () => {
+        if (!isPreserveHtmlBlockMode(editor)) {
+          return false;
+        }
+        return redoHtmlBlock(editor);
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [editor]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isPreserveHtmlBlockMode(editor)) {
+        return;
+      }
+      const eventTarget = event.target;
+      if (
+        eventTarget instanceof HTMLElement &&
+        eventTarget.closest(
+          "input, textarea, .cm-editor, .lexicaltheme__htmlview, .lexicaltheme__diablogbox"
+        )
+      ) {
+        return;
+      }
+      const isMod = event.ctrlKey || event.metaKey;
+      if (!isMod) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        if (undoHtmlBlock(editor)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
+      if (key === "y" || (key === "z" && event.shiftKey)) {
+        if (redoHtmlBlock(editor)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [editor]);
 
   useEffect(() => {
     return editor.registerCommand(

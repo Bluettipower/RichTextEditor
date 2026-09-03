@@ -1,7 +1,16 @@
 import type { ElementFormatType, LexicalEditor, TextFormatType } from "lexical";
-import { $getRoot } from "lexical";
+import { $getRoot, CAN_REDO_COMMAND, CAN_UNDO_COMMAND } from "lexical";
 
 import { $isHtmlBlockNode } from "../nodes/HtmlBlockNode";
+import { resolveToolbarFontFamily } from "./fontFamily";
+import {
+  canRedoHtmlBlock,
+  canUndoHtmlBlock,
+  recordHtmlBlockHistory,
+  redoHtmlBlockHistory,
+  setApplyingHtmlBlockHistory,
+  undoHtmlBlockHistory,
+} from "./htmlBlockHistory";
 
 export const HTML_BLOCK_CONTENT_CLASS = "lexicaltheme__htmlBlock__content";
 
@@ -111,16 +120,14 @@ export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
 }
 
 function restoreHtmlBlockSelection(content: HTMLElement): boolean {
-  const liveRange = getLiveRangeInContent(content, true);
-  if (liveRange) {
+  if (getLiveRangeInContent(content)) {
     saveHtmlBlockSelection(content);
     return true;
   }
 
   content.focus({ preventScroll: true });
 
-  const nativeRange = getLiveRangeInContent(content, true);
-  if (nativeRange) {
+  if (getLiveRangeInContent(content)) {
     saveHtmlBlockSelection(content);
     return true;
   }
@@ -693,6 +700,13 @@ export function syncActiveHtmlBlockToNode(editor: LexicalEditor): void {
   }
 }
 
+function notifyHtmlBlockUndoRedo(editor: LexicalEditor): void {
+  setTimeout(() => {
+    editor.dispatchCommand(CAN_UNDO_COMMAND, canUndoHtmlBlock());
+    editor.dispatchCommand(CAN_REDO_COMMAND, canRedoHtmlBlock());
+  }, 0);
+}
+
 function syncHtmlBlockContentToNode(
   editor: LexicalEditor,
   content: HTMLElement
@@ -711,6 +725,7 @@ function syncHtmlBlockContentToNode(
     }
   });
   saveHtmlBlockSelection(content);
+  notifyHtmlBlockUndoRedo(editor);
 }
 
 export function applyHtmlBlockFormatAndSync(
@@ -718,12 +733,46 @@ export function applyHtmlBlockFormatAndSync(
   apply: () => boolean
 ): boolean {
   return withHtmlBlockContent(editor, (content) => {
+    const before = content.innerHTML;
     if (!apply()) {
       return false;
     }
+    recordHtmlBlockHistory(before, content.innerHTML);
     syncHtmlBlockContentToNode(editor, content);
+    requestAnimationFrame(() => {
+      restoreHtmlBlockSelection(content);
+    });
     return true;
   });
+}
+
+function applyHtmlFromHistory(
+  editor: LexicalEditor,
+  html: string | null
+): boolean {
+  if (html == null) {
+    return false;
+  }
+  const content = getHtmlBlockContentForToolbar(editor);
+  if (!content) {
+    return false;
+  }
+  setApplyingHtmlBlockHistory(true);
+  content.innerHTML = html;
+  syncHtmlBlockContentToNode(editor, content);
+  requestAnimationFrame(() => {
+    restoreHtmlBlockSelection(content);
+    setApplyingHtmlBlockHistory(false);
+  });
+  return true;
+}
+
+export function undoHtmlBlock(editor: LexicalEditor): boolean {
+  return applyHtmlFromHistory(editor, undoHtmlBlockHistory());
+}
+
+export function redoHtmlBlock(editor: LexicalEditor): boolean {
+  return applyHtmlFromHistory(editor, redoHtmlBlockHistory());
 }
 
 export function applyHtmlBlockTextFormat(format: TextFormatType): boolean {
@@ -830,7 +879,84 @@ export function applyHtmlBlockStyleText(
     return applyHtmlBlockBackgroundColor(styles["background-color"]);
   }
 
+  if ("font-family" in styles) {
+    if (!styles["font-family"]) {
+      return removeInlineStyle("font-family");
+    }
+    return applyInlineStyles({ "font-family": styles["font-family"] });
+  }
+
   return applyInlineStyles(styles);
+}
+
+function placeCaretAtStart(element: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+  const range = document.createRange();
+  if (element.firstChild) {
+    range.setStart(element.firstChild, 0);
+  } else {
+    range.setStart(element, 0);
+  }
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedHtmlBlockRange = range.cloneRange();
+}
+
+export function insertHtmlBlockEnter(shiftKey = false): boolean {
+  const content = getActiveHtmlBlockContent();
+  if (!content) {
+    return false;
+  }
+
+  const before = content.innerHTML;
+  restoreHtmlBlockSelection(content);
+  content.focus({ preventScroll: true });
+
+  const applied = shiftKey
+    ? document.execCommand("insertLineBreak", false)
+    : document.execCommand("insertParagraph", false);
+
+  if (applied) {
+    recordHtmlBlockHistory(before, content.innerHTML);
+    return true;
+  }
+
+  if (shiftKey) {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const block = getClosestBlock(content, range.startContainer);
+  if (!block || block === content) {
+    return document.execCommand("insertLineBreak", false);
+  }
+
+  const afterRange = document.createRange();
+  afterRange.setStart(range.startContainer, range.startOffset);
+  afterRange.setEndAfter(block.lastChild ?? block);
+  const after = afterRange.extractContents();
+
+  const newBlock = block.cloneNode(false) as HTMLElement;
+  if (!after.textContent?.trim() && !after.querySelector("img, br, video, table")) {
+    newBlock.appendChild(document.createElement("br"));
+  } else {
+    newBlock.appendChild(after);
+  }
+  block.after(newBlock);
+  placeCaretAtStart(newBlock);
+  recordHtmlBlockHistory(before, content.innerHTML);
+  return true;
 }
 
 export function applyHtmlBlockHeading(
@@ -1202,7 +1328,10 @@ export function clearHtmlBlockFormatting(): boolean {
   return true;
 }
 
-function getInlineStyleFromSelection(property: string): string | undefined {
+function getInlineStyleFromSelection(
+  property: string,
+  walkToContent = false
+): string | undefined {
   const selection = window.getSelection();
   let node: Node | null = null;
 
@@ -1225,9 +1354,12 @@ function getInlineStyleFromSelection(property: string): string | undefined {
     if (inlineValue) {
       return inlineValue;
     }
+    if (node.classList.contains(HTML_BLOCK_CONTENT_CLASS)) {
+      break;
+    }
     const tag = node.tagName.toLowerCase();
     if (
-      node.classList.contains(HTML_BLOCK_CONTENT_CLASS) ||
+      !walkToContent &&
       /^(p|div|h[1-6]|li|blockquote|pre)$/.test(tag)
     ) {
       break;
@@ -1334,12 +1466,12 @@ export function readHtmlBlockToolbarState(
   const inlineLineHeight = getInlineStyleFromSelection("line-height");
   const inlineLetterSpacing = getInlineStyleFromSelection("letter-spacing");
 
-  const inlineFontFamily = getInlineStyleFromSelection("font-family");
+  const inlineFontFamily = getInlineStyleFromSelection("font-family", true);
 
   return {
     blockType,
     fontSize: computed.fontSize,
-    fontFamily: inlineFontFamily || computed.fontFamily,
+    fontFamily: resolveToolbarFontFamily(inlineFontFamily),
     lineHeight: normalizeLineHeightValue(
       inlineLineHeight || computed.lineHeight,
       computed.fontSize
