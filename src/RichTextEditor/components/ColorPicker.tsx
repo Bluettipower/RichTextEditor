@@ -260,6 +260,7 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
     isTransparentColor(color) ? "transparent" : color
   );
   const skipHexOnChangeRef = useRef(false);
+  const isFirstColorEffect = useRef(true);
   const innerDivRef = useRef(null);
 
   const saturationPosition = useMemo(
@@ -305,7 +306,10 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
   };
 
   useEffect(() => {
-    // Check if the dropdown is actually active
+    if (isFirstColorEffect.current) {
+      isFirstColorEffect.current = false;
+      return;
+    }
     if (innerDivRef.current !== null && onChange) {
       if (skipHexOnChangeRef.current) {
         skipHexOnChangeRef.current = false;
@@ -321,10 +325,10 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
       return;
     }
     if (isTransparentColor(color)) {
-      skipHexOnChangeRef.current = true;
       setInputColor("transparent");
       return;
     }
+    skipHexOnChangeRef.current = true;
     const newColor = transformColor("hex", color);
     setSelfColor(newColor);
     setInputColor(newColor.hex);
@@ -352,11 +356,8 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
           type="button"
           className="lexicaltheme__colorpicker__transparent"
           onClick={() => {
-            skipHexOnChangeRef.current = true;
             setInputColor("transparent");
-            if (onChange) {
-              onChange("transparent", false);
-            }
+            onChange?.("transparent", false);
           }}
         >
           <span className="lexicaltheme__colorpicker__transparent_icon" />
@@ -376,8 +377,10 @@ const ColorPicker: React.FC<Readonly<ColorPickerProps>> = (props) => {
                 : ""
             )}
             onClick={() => {
+              skipHexOnChangeRef.current = true;
               setInputColor(basicColor);
               setSelfColor(transformColor("hex", basicColor));
+              onChange?.(basicColor, false);
             }}
           />
         ))}

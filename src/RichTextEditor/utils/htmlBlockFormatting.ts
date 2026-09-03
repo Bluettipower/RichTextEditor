@@ -77,6 +77,24 @@ function rangeFromBookmark(
   }
 }
 
+function getLiveRangeInContent(
+  content: HTMLElement,
+  requireNonCollapsed = false
+): Range | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !selection.anchorNode) {
+    return null;
+  }
+  if (!content.contains(selection.anchorNode)) {
+    return null;
+  }
+  const range = selection.getRangeAt(0);
+  if (requireNonCollapsed && range.collapsed) {
+    return null;
+  }
+  return range;
+}
+
 export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
   if (!content) {
     content = getActiveHtmlBlockContent();
@@ -84,18 +102,29 @@ export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
       return;
     }
   }
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
+  const range = getLiveRangeInContent(content);
+  if (!range) {
     return;
   }
-  const range = selection.getRangeAt(0);
-  if (content.contains(range.commonAncestorContainer)) {
-    savedHtmlBlockRange = range.cloneRange();
-    savedHtmlBlockBookmark = createSelectionBookmark(content, range);
-  }
+  savedHtmlBlockRange = range.cloneRange();
+  savedHtmlBlockBookmark = createSelectionBookmark(content, range);
 }
 
 function restoreHtmlBlockSelection(content: HTMLElement): boolean {
+  const liveRange = getLiveRangeInContent(content, true);
+  if (liveRange) {
+    saveHtmlBlockSelection(content);
+    return true;
+  }
+
+  content.focus({ preventScroll: true });
+
+  const nativeRange = getLiveRangeInContent(content, true);
+  if (nativeRange) {
+    saveHtmlBlockSelection(content);
+    return true;
+  }
+
   let range: Range | null = null;
   if (
     savedHtmlBlockRange &&
@@ -110,7 +139,6 @@ function restoreHtmlBlockSelection(content: HTMLElement): boolean {
     return false;
   }
 
-  content.focus();
   const selection = window.getSelection();
   if (!selection) {
     return false;
@@ -121,20 +149,20 @@ function restoreHtmlBlockSelection(content: HTMLElement): boolean {
   return true;
 }
 
+function isSelectionInContent(content: HTMLElement): boolean {
+  return getLiveRangeInContent(content) !== null;
+}
+
 export function getHtmlBlockContentForToolbar(
   editor: LexicalEditor
 ): HTMLElement | null {
-  const active = getActiveHtmlBlockContent();
-  if (active) {
-    saveHtmlBlockSelection(active);
-    return active;
+  const content =
+    getActiveHtmlBlockContent() ?? getHtmlBlockContentElement(editor);
+  if (!content) {
+    return null;
   }
 
-  const content = getHtmlBlockContentElement(editor);
-  if (content) {
-    restoreHtmlBlockSelection(content);
-  }
-
+  restoreHtmlBlockSelection(content);
   return content;
 }
 
@@ -168,7 +196,6 @@ function withHtmlBlockContent(
   if (!content) {
     return false;
   }
-  restoreHtmlBlockSelection(content);
   const result = fn(content);
   saveHtmlBlockSelection(content);
   return result;
@@ -743,7 +770,6 @@ function resolveHtmlBlockContent(): HTMLElement | null {
       `.${HTML_BLOCK_CONTENT_CLASS}`
     ) as HTMLElement | null;
     if (content) {
-      restoreHtmlBlockSelection(content);
       return content;
     }
   }
@@ -791,11 +817,11 @@ export function applyHtmlBlockStyleText(
   styles: Record<string, string>
 ): boolean {
   if ("color" in styles) {
-    const content = getActiveHtmlBlockContent();
+    const content = resolveHtmlBlockContent();
     if (!content) {
       return false;
     }
-    content.focus();
+    restoreHtmlBlockSelection(content);
     document.execCommand("foreColor", false, styles.color);
     return true;
   }

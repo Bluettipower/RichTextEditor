@@ -257,25 +257,14 @@ function HtmlBlockComponent({
       }
     };
 
-    let pendingFocusRAF = 0;
+    let mouseDownPoint = { x: 0, y: 0 };
 
     const handleMouseDown = (event: Event) => {
       event.stopPropagation();
-
       const me = event as MouseEvent;
-      const x = me.clientX;
-      const y = me.clientY;
-      const hadFocus =
-        el === document.activeElement ||
-        el.contains(document.activeElement);
-
-      if (!hadFocus) {
-        cancelAnimationFrame(pendingFocusRAF);
-        pendingFocusRAF = requestAnimationFrame(() => {
-          el.focus();
-          placeCaret(x, y);
-          rememberHtmlBlockSelection(el);
-        });
+      mouseDownPoint = { x: me.clientX, y: me.clientY };
+      if (el !== document.activeElement && !el.contains(document.activeElement)) {
+        el.focus({ preventScroll: true });
       }
     };
 
@@ -292,19 +281,51 @@ function HtmlBlockComponent({
     });
     el.addEventListener("keydown", handleKeyDown, true);
 
+    const handleMouseUp = (event: Event) => {
+      const me = event as MouseEvent;
+      const moved = Math.hypot(
+        me.clientX - mouseDownPoint.x,
+        me.clientY - mouseDownPoint.y
+      );
+      const sel = window.getSelection();
+      if (
+        moved < 3 &&
+        (!sel || sel.isCollapsed || !el.contains(sel.anchorNode))
+      ) {
+        placeCaret(me.clientX, me.clientY);
+      }
+      rememberHtmlBlockSelection(el);
+    };
     const saveSelection = () => rememberHtmlBlockSelection(el);
-    el.addEventListener("mouseup", saveSelection);
+    el.addEventListener("mouseup", handleMouseUp, true);
     el.addEventListener("keyup", saveSelection);
 
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (sel && sel.anchorNode && el.contains(sel.anchorNode)) {
+        rememberHtmlBlockSelection(el);
+      }
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+
+    const handleDocPointerDown = (event: PointerEvent) => {
+      if (el.contains(event.target as Node)) {
+        return;
+      }
+      rememberHtmlBlockSelection(el);
+    };
+    document.addEventListener("pointerdown", handleDocPointerDown, true);
+
     return () => {
-      cancelAnimationFrame(pendingFocusRAF);
       el.removeEventListener("mousedown", handleMouseDown, true);
       captureEvents.forEach((name) => {
         el.removeEventListener(name, stopLexical, true);
       });
       el.removeEventListener("keydown", handleKeyDown, true);
-      el.removeEventListener("mouseup", saveSelection);
+      el.removeEventListener("mouseup", handleMouseUp, true);
       el.removeEventListener("keyup", saveSelection);
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      document.removeEventListener("pointerdown", handleDocPointerDown, true);
     };
   }, [syncHtmlToNode]);
 
