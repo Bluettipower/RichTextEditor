@@ -28,6 +28,7 @@ import FloatingLinkEditorPlugin from "./plugins/FloatingLinkEditorPlugin";
 import TableCellResizerPlugin from "./plugins/TableCellResizerPlugin";
 import TableActionMenuPlugin from "./plugins/TableActionMenuPlugin";
 import LinkPlugin from "./plugins/LinkPlugin";
+import LinkHoverPreviewPlugin from "./plugins/LinkHoverPreviewPlugin";
 import FloatingTextFormatToolbarPlugin from "./plugins/FloatingTextFormatToolbarPlugin";
 import YouTubePlugin from "./plugins/YouTubePlugin";
 import SerializationPlugin from "./plugins/SerializationPlugin";
@@ -283,6 +284,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
 
             <PageBreakPlugin />
             <LinkPlugin />
+            <LinkHoverPreviewPlugin />
             <YouTubePlugin />
 
             {floatingAnchorElem && !isSmallWidthViewport && (

@@ -119,41 +119,70 @@ export function saveHtmlBlockSelection(content?: HTMLElement | null): void {
   savedHtmlBlockBookmark = createSelectionBookmark(content, range);
 }
 
+function isRangeInContent(range: Range, content: HTMLElement): boolean {
+  try {
+    const ancestor = range.commonAncestorContainer;
+    return content.contains(ancestor) || ancestor === content;
+  } catch {
+    return false;
+  }
+}
+
+function getSavedRangeInContent(content: HTMLElement): Range | null {
+  if (savedHtmlBlockRange && isRangeInContent(savedHtmlBlockRange, content)) {
+    return savedHtmlBlockRange;
+  }
+  if (savedHtmlBlockBookmark) {
+    return rangeFromBookmark(content, savedHtmlBlockBookmark);
+  }
+  return null;
+}
+
+function applyRangeToSelection(content: HTMLElement, range: Range): boolean {
+  const toApply = range.cloneRange();
+  if (document.activeElement !== content) {
+    content.focus({ preventScroll: true });
+  }
+  const selection = window.getSelection();
+  if (!selection) {
+    return false;
+  }
+  try {
+    selection.removeAllRanges();
+    selection.addRange(toApply);
+    savedHtmlBlockRange = toApply.cloneRange();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function restoreHtmlBlockSelection(content: HTMLElement): boolean {
+  // 用户刚框选的非折叠选区优先，避免被旧书签盖掉。
+  if (getLiveRangeInContent(content, true)) {
+    saveHtmlBlockSelection(content);
+    return true;
+  }
+
+  // 弹窗/工具栏抢走焦点后，浏览器 focus() 常把光标甩到段首。
+  // 因此先还原保存的书签，不要信任 focus() 之后出现的折叠光标。
+  const saved = getSavedRangeInContent(content);
+  if (saved) {
+    return applyRangeToSelection(content, saved);
+  }
+
   if (getLiveRangeInContent(content)) {
     saveHtmlBlockSelection(content);
     return true;
   }
 
   content.focus({ preventScroll: true });
-
   if (getLiveRangeInContent(content)) {
     saveHtmlBlockSelection(content);
     return true;
   }
 
-  let range: Range | null = null;
-  if (
-    savedHtmlBlockRange &&
-    content.contains(savedHtmlBlockRange.commonAncestorContainer)
-  ) {
-    range = savedHtmlBlockRange;
-  } else if (savedHtmlBlockBookmark) {
-    range = rangeFromBookmark(content, savedHtmlBlockBookmark);
-  }
-
-  if (!range) {
-    return false;
-  }
-
-  const selection = window.getSelection();
-  if (!selection) {
-    return false;
-  }
-  selection.removeAllRanges();
-  selection.addRange(range);
-  savedHtmlBlockRange = range.cloneRange();
-  return true;
+  return false;
 }
 
 function isSelectionInContent(content: HTMLElement): boolean {
@@ -1024,21 +1053,10 @@ export function applyHtmlBlockLink(
   url: string | null,
   target?: string
 ): boolean {
-  let content = getActiveHtmlBlockContent();
-  if (!content && savedHtmlBlockRange) {
-    const ancestor = savedHtmlBlockRange.commonAncestorContainer;
-    const el =
-      ancestor.nodeType === Node.ELEMENT_NODE
-        ? (ancestor as HTMLElement)
-        : ancestor.parentElement;
-    content =
-      (el?.closest(`.${HTML_BLOCK_CONTENT_CLASS}`) as HTMLElement | null) ??
-      null;
-  }
+  const content = resolveHtmlBlockContent();
   if (!content) {
     return false;
   }
-  content.focus();
 
   if (!restoreHtmlBlockSelection(content)) {
     return false;
@@ -1204,11 +1222,15 @@ export function applyHtmlBlockQuote(): boolean {
 }
 
 export function insertHtmlAtCursor(html: string): boolean {
-  const content = getActiveHtmlBlockContent();
+  const content = resolveHtmlBlockContent();
   if (!content) {
     return false;
   }
-  content.focus();
+
+  if (!restoreHtmlBlockSelection(content)) {
+    content.insertAdjacentHTML("beforeend", html);
+    return true;
+  }
 
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
@@ -1239,21 +1261,14 @@ export function insertHtmlAtCursor(html: string): boolean {
 }
 
 export function insertHtmlBlockEmoji(emoji: string): boolean {
-  const content = getActiveHtmlBlockContent();
+  const content = resolveHtmlBlockContent();
   if (!content) {
     return false;
   }
-  content.focus();
 
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    if (savedHtmlBlockRange && content.contains(savedHtmlBlockRange.commonAncestorContainer)) {
-      selection?.removeAllRanges();
-      selection?.addRange(savedHtmlBlockRange);
-    } else {
-      content.insertAdjacentText("beforeend", emoji);
-      return true;
-    }
+  if (!restoreHtmlBlockSelection(content)) {
+    content.insertAdjacentText("beforeend", emoji);
+    return true;
   }
 
   document.execCommand("insertText", false, emoji);

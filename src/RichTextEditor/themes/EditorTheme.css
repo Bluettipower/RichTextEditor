@@ -185,6 +185,22 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.lexicaltheme__link-hover-preview {
+  position: fixed;
+  z-index: 1000;
+  max-width: 360px;
+  padding: 6px 10px;
+  background: #ffffff;
+  color: #1d2129;
+  border: 1px solid #e5e6eb;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+  pointer-events: none;
+}
 .lexicaltheme__code {
   background-color: rgb(240, 242, 245);
   font-family: Menlo, Consolas, Monaco, monospace;
