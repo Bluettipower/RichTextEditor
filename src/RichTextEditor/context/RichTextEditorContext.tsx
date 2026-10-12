@@ -5,6 +5,7 @@ import React, { createContext, useContext } from "react";
 export interface RichTextEditorContextValue {
   editor: LexicalEditor;
   disabled?: boolean;
+  stripColorsOnExternalPaste?: boolean;
 }
 
 const RichTextEditorContext =
@@ -12,12 +13,15 @@ const RichTextEditorContext =
 
 export const RichTextEditorContextProvider: React.FC<{
   disabled?: boolean;
+  stripColorsOnExternalPaste?: boolean;
   children: React.ReactNode;
-}> = ({ disabled, children }) => {
+}> = ({ disabled, stripColorsOnExternalPaste = true, children }) => {
   const [editor] = useLexicalComposerContext();
 
   return (
-    <RichTextEditorContext.Provider value={{ editor, disabled }}>
+    <RichTextEditorContext.Provider
+      value={{ editor, disabled, stripColorsOnExternalPaste }}
+    >
       {children}
     </RichTextEditorContext.Provider>
   );

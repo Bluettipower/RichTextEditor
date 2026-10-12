@@ -24,10 +24,18 @@ import {
 } from "lexical";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { useRichTextEditor } from "../../context/RichTextEditorContext";
 import {
+  insertHtmlAtCursor,
   insertHtmlBlockEnter,
   rememberHtmlBlockSelection,
 } from "../../utils/htmlBlockFormatting";
+import {
+  clipboardHasFilesWithoutText,
+  getHtmlForExternalPaste,
+  markHtmlBlockInternalClipboard,
+  shouldPreservePasteColors,
+} from "../../utils/pasteClipboardStrip";
 import {
   getHtmlBlockHistoryCurrent,
   initHtmlBlockHistory,
@@ -50,6 +58,7 @@ function HtmlBlockComponent({
   nodeKey: NodeKey;
 }) {
   const [editor] = useLexicalComposerContext();
+  const { stripColorsOnExternalPaste = true } = useRichTextEditor();
   const contentRef = useRef<HTMLDivElement>(null);
   const lastSyncedHtml = useRef("");
   const isMounted = useRef(false);
@@ -347,6 +356,46 @@ function HtmlBlockComponent({
     };
     document.addEventListener("pointerdown", handleDocPointerDown, true);
 
+    const handleCopy = (event: ClipboardEvent) => {
+      if (!stripColorsOnExternalPaste || !event.clipboardData) {
+        return;
+      }
+      markHtmlBlockInternalClipboard(
+        event.clipboardData,
+        editor._config.namespace
+      );
+    };
+
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!stripColorsOnExternalPaste || !event.clipboardData) {
+        return;
+      }
+      const data = event.clipboardData;
+      const namespace = editor._config.namespace;
+      if (
+        shouldPreservePasteColors(data, namespace) ||
+        clipboardHasFilesWithoutText(data)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const strippedHtml = getHtmlForExternalPaste(data);
+      if (strippedHtml != null && strippedHtml.length > 0) {
+        insertHtmlAtCursor(strippedHtml);
+      } else {
+        const plain = data.getData("text/plain");
+        if (plain) {
+          document.execCommand("insertText", false, plain);
+        }
+      }
+      syncHtmlToNode(el.innerHTML);
+      rememberHtmlBlockSelection(el);
+    };
+
+    el.addEventListener("copy", handleCopy, true);
+    el.addEventListener("paste", handlePaste, true);
+
     return () => {
       el.removeEventListener("mousedown", handleMouseDown, true);
       captureEvents.forEach((name) => {
@@ -358,8 +407,10 @@ function HtmlBlockComponent({
       el.removeEventListener("keyup", saveSelection);
       document.removeEventListener("selectionchange", handleSelectionChange);
       document.removeEventListener("pointerdown", handleDocPointerDown, true);
+      el.removeEventListener("copy", handleCopy, true);
+      el.removeEventListener("paste", handlePaste, true);
     };
-  }, [syncHtmlToNode]);
+  }, [editor, stripColorsOnExternalPaste, syncHtmlToNode]);
 
   const $onDelete = useCallback(
     (event: KeyboardEvent) => {

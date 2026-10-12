@@ -45,6 +45,7 @@ import TableOfContentsPlugin from "./plugins/TableOfContentsPlugin";
 import DraggableBlockPlugin from "./plugins/DraggableBlockPlugin";
 import { ExtendedTextNode } from "./nodes/ExtendedTextNode";
 import { TableContext } from "./plugins/TablePlugin";
+import StripColorOnPastePlugin from "./plugins/StripColorOnPastePlugin";
 
 import type { ReactNode } from "react";
 import type {
@@ -99,6 +100,8 @@ export interface LnkstoneEditorProps {
   preserveHtmlStructure?: boolean;
   /** 为 true 时工具栏在滚动时固定在顶部 */
   stickyToolbar?: boolean;
+  /** 为 true 时外部粘贴去掉文字颜色与高亮，编辑器内复制保留颜色，默认 true */
+  stripColorsOnExternalPaste?: boolean;
 }
 
 const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
@@ -118,6 +121,7 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
     hiddenToolbarItems,
     preserveHtmlStructure = false,
     stickyToolbar = false,
+    stripColorsOnExternalPaste = false,
   } = props;
 
   const borderColor = new Map<string, string>([
@@ -218,7 +222,10 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
   return (
     <SettingsContext>
       <LexicalComposer initialConfig={initialConfig}>
-        <RichTextEditorContextProvider disabled={disabled}>
+        <RichTextEditorContextProvider
+          disabled={disabled}
+          stripColorsOnExternalPaste={stripColorsOnExternalPaste}
+        >
         <TableContext>
           <div
             id={id}
@@ -261,6 +268,11 @@ const LnkstoneEditor: React.FC<LnkstoneEditorProps> = (props) => {
               }
               ErrorBoundary={LexicalErrorBoundary}
             />
+            {!preserveHtmlStructure && (
+              <StripColorOnPastePlugin
+                enabled={stripColorsOnExternalPaste}
+              />
+            )}
             {/* {isCollab ? (
               <CollaborationPlugin
                 id="main"
