@@ -24,12 +24,18 @@ import {
 } from "lexical";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { EditImageDialogForm } from "../../components/EditImageDialog";
 import { useRichTextEditor } from "../../context/RichTextEditorContext";
 import {
+  applyHtmlBlockFormatAndSync,
+  getHtmlBlockImageFromTarget,
   insertHtmlAtCursor,
   insertHtmlBlockEnter,
+  readHtmlBlockImagePayload,
   rememberHtmlBlockSelection,
+  updateHtmlBlockImage,
 } from "../../utils/htmlBlockFormatting";
+import useModal from "../../utils/useModal";
 import {
   clipboardHasFilesWithoutText,
   getHtmlForExternalPaste,
@@ -59,6 +65,7 @@ function HtmlBlockComponent({
 }) {
   const [editor] = useLexicalComposerContext();
   const { stripColorsOnExternalPaste = true } = useRichTextEditor();
+  const [modal, showModal] = useModal();
   const contentRef = useRef<HTMLDivElement>(null);
   const lastSyncedHtml = useRef("");
   const isMounted = useRef(false);
@@ -314,7 +321,33 @@ function HtmlBlockComponent({
       "selectstart",
     ] as const;
 
+    const handleImageClick = (event: MouseEvent) => {
+      if (!editable) {
+        return;
+      }
+      const img = getHtmlBlockImageFromTarget(el, event.target);
+      if (!img) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      rememberHtmlBlockSelection(el);
+      const initial = readHtmlBlockImagePayload(img);
+      showModal("编辑图片", (onClose) => (
+        <EditImageDialogForm
+          image={initial}
+          onSave={({ width, src, altText }) => {
+            applyHtmlBlockFormatAndSync(editor, () =>
+              updateHtmlBlockImage(img, { src, altText, width })
+            );
+            onClose();
+          }}
+        />
+      ));
+    };
+
     el.addEventListener("mousedown", handleMouseDown, true);
+    el.addEventListener("click", handleImageClick, true);
     captureEvents.forEach((name) => {
       el.addEventListener(name, stopLexical, true);
     });
@@ -323,6 +356,10 @@ function HtmlBlockComponent({
 
     const handleMouseUp = (event: Event) => {
       const me = event as MouseEvent;
+      if (getHtmlBlockImageFromTarget(el, me.target)) {
+        rememberHtmlBlockSelection(el);
+        return;
+      }
       const moved = Math.hypot(
         me.clientX - mouseDownPoint.x,
         me.clientY - mouseDownPoint.y
@@ -398,6 +435,7 @@ function HtmlBlockComponent({
 
     return () => {
       el.removeEventListener("mousedown", handleMouseDown, true);
+      el.removeEventListener("click", handleImageClick, true);
       captureEvents.forEach((name) => {
         el.removeEventListener(name, stopLexical, true);
       });
@@ -410,7 +448,7 @@ function HtmlBlockComponent({
       el.removeEventListener("copy", handleCopy, true);
       el.removeEventListener("paste", handlePaste, true);
     };
-  }, [editor, stripColorsOnExternalPaste, syncHtmlToNode]);
+  }, [editable, editor, showModal, stripColorsOnExternalPaste, syncHtmlToNode]);
 
   const $onDelete = useCallback(
     (event: KeyboardEvent) => {
@@ -490,14 +528,17 @@ function HtmlBlockComponent({
   }, [editor, isSelected, nodeKey]);
 
   return (
-    <div
-      ref={contentRef}
-      className="lexicaltheme__htmlBlock__content"
-      contentEditable={editable}
-      suppressContentEditableWarning
-      onInput={handleInput}
-      onBlur={handleInput}
-    />
+    <>
+      {modal}
+      <div
+        ref={contentRef}
+        className="lexicaltheme__htmlBlock__content"
+        contentEditable={editable}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onBlur={handleInput}
+      />
+    </>
   );
 }
 

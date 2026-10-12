@@ -1275,6 +1275,62 @@ export function insertHtmlBlockEmoji(emoji: string): boolean {
   return true;
 }
 
+export function getHtmlBlockImageFromTarget(
+  content: HTMLElement,
+  target: EventTarget | null
+): HTMLImageElement | null {
+  if (target == null || !(target instanceof Node)) {
+    return null;
+  }
+  const element =
+    target instanceof Element ? target : target.parentElement;
+  const img = element?.closest("img");
+  if (!img || !content.contains(img)) {
+    return null;
+  }
+  return img;
+}
+
+export function readHtmlBlockImagePayload(img: HTMLImageElement): {
+  src: string;
+  altText: string;
+  width: string | number;
+} {
+  const src =
+    img.getAttribute("src")?.trim() ||
+    img.getAttribute("data-src")?.trim() ||
+    "";
+  const altText = img.getAttribute("alt") ?? "";
+  const widthFromStyle = img.style.width;
+  if (widthFromStyle) {
+    return { src, altText, width: widthFromStyle };
+  }
+  const widthAttr = img.getAttribute("width");
+  if (widthAttr) {
+    return { src, altText, width: widthAttr.includes("%") ? widthAttr : Number(widthAttr) || widthAttr };
+  }
+  return { src, altText, width: "100%" };
+}
+
+export function updateHtmlBlockImage(
+  img: HTMLImageElement,
+  payload: { src: string; altText: string; width: string | number }
+): boolean {
+  const w =
+    typeof payload.width === "number"
+      ? `${payload.width}px`
+      : payload.width || "100%";
+  img.src = payload.src;
+  img.alt = payload.altText;
+  img.removeAttribute("data-src");
+  img.style.maxWidth = "100%";
+  img.style.width = w;
+  img.style.height = "auto";
+  img.removeAttribute("width");
+  img.removeAttribute("height");
+  return true;
+}
+
 export function insertHtmlBlockImage(
   src: string,
   altText: string,
