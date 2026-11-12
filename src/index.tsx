@@ -17,4 +17,10 @@ export {
   $getEditorHtml,
   importHtmlToEditor,
   getEditorHtml,
+  saveHtmlBlockSelection,
+  rememberHtmlBlockSelection,
+  insertHtmlAtCursor,
+  applyHtmlBlockFormatAndSync,
+  insertHtmlBlockContentAtCursor,
+  insertHtmlBlockImage,
 } from "./RichTextEditor";

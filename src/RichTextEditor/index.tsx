@@ -72,6 +72,14 @@ export {
 export type { ImportHtmlOptions } from "./utils/htmlImport";
 export { useRichTextEditor } from "./context/RichTextEditorContext";
 export { ToolbarButton } from "./plugins/ToolbarPlugin";
+export {
+  saveHtmlBlockSelection,
+  rememberHtmlBlockSelection,
+  insertHtmlAtCursor,
+  applyHtmlBlockFormatAndSync,
+  insertHtmlBlockContentAtCursor,
+  insertHtmlBlockImage,
+} from "./utils/htmlBlockFormatting";
 
 export interface LnkstoneEditorProps {
   id?: string;

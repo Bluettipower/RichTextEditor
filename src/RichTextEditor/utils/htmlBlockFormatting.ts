@@ -775,6 +775,14 @@ export function applyHtmlBlockFormatAndSync(
   });
 }
 
+/** preserveStructure 模式下在 HtmlBlock 光标处插入 HTML 并同步 Lexical */
+export function insertHtmlBlockContentAtCursor(
+  editor: LexicalEditor,
+  html: string,
+): boolean {
+  return applyHtmlBlockFormatAndSync(editor, () => insertHtmlAtCursor(html));
+}
+
 function applyHtmlFromHistory(
   editor: LexicalEditor,
   html: string | null
